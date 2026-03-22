@@ -1,0 +1,5 @@
+[build]
+  builder = "docker"    # Tells Railway to use your Dockerfile to build the project
+
+[start]
+  command = "php artisan serve --host=0.0.0.0 --port=8000"  # Command to start Laravel
