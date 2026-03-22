@@ -1,5 +1,6 @@
 [build]
-  builder = "docker"    # Tells Railway to use your Dockerfile to build the project
+php = "8.4"
+node = "22"
 
 [start]
-  command = "php artisan serve --host=0.0.0.0 --port=8000"  # Command to start Laravel
+command = "php artisan migrate --force && php artisan serve --host=0.0.0.0 --port=8000"
