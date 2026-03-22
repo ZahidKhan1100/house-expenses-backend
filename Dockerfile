@@ -20,9 +20,6 @@ COPY . .
 # Install PHP dependencies
 RUN composer install --optimize-autoloader --no-interaction
 
-# Copy env example if .env doesn't exist
-RUN if [ ! -f .env ]; then cp .env.example .env; fi
-
 # Set permissions for Laravel
 RUN mkdir -p storage/framework/{sessions,views,cache,testing} storage/logs bootstrap/cache \
     && chmod -R 775 storage bootstrap/cache
