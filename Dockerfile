@@ -1,5 +1,5 @@
 # Dockerfile
-FROM php:8.4-fpm
+FROM php:8.4-cli
 
 WORKDIR /var/www/html
 
