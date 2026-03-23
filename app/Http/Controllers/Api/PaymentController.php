@@ -72,9 +72,10 @@ class PaymentController extends Controller
 
             $payer = $rec->paid_by;
 
-            if (!in_array($payer, $mateIds)) continue;
+            if (!in_array($payer, $mateIds))
+                continue;
 
-            $category = $rec->category ?? 'Other';
+            $category = $rec->category ? $rec->category->name : 'Other';
             $title = $rec->title ?? 'Expense';
 
             if (!isset($categoryBreakdown[$payer])) {
@@ -100,7 +101,8 @@ class PaymentController extends Controller
 
         // --- Calculate balances ---
         $balance = [];
-        foreach ($mates as $mate) $balance[$mate->id] = 0;
+        foreach ($mates as $mate)
+            $balance[$mate->id] = 0;
 
         foreach ($records as $rec) {
             $included = is_array($rec->included_mates) ? $rec->included_mates : [];
@@ -110,7 +112,8 @@ class PaymentController extends Controller
             }
 
             $included = array_filter($included, fn($id) => in_array($id, $mateIds));
-            if (count($included) === 0) continue;
+            if (count($included) === 0)
+                continue;
 
             $split = $rec->amount / count($included);
 
@@ -128,8 +131,10 @@ class PaymentController extends Controller
         $debtors = [];
 
         foreach ($balance as $id => $amt) {
-            if ($amt > 0) $creditors[] = ['id' => $id, 'amount' => $amt];
-            if ($amt < 0) $debtors[] = ['id' => $id, 'amount' => -$amt];
+            if ($amt > 0)
+                $creditors[] = ['id' => $id, 'amount' => $amt];
+            if ($amt < 0)
+                $debtors[] = ['id' => $id, 'amount' => -$amt];
         }
 
         $transactions = [];
@@ -150,8 +155,10 @@ class PaymentController extends Controller
             $debtor['amount'] -= $amt;
             $creditor['amount'] -= $amt;
 
-            if ($debtor['amount'] == 0) $i++;
-            if ($creditor['amount'] == 0) $j++;
+            if ($debtor['amount'] == 0)
+                $i++;
+            if ($creditor['amount'] == 0)
+                $j++;
         }
 
         // --- Final Response ---
