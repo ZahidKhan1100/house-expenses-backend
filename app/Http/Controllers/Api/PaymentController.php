@@ -76,7 +76,7 @@ class PaymentController extends Controller
                 continue;
 
             $category = $rec->category ? $rec->category->name : 'Other';
-            $title = $rec->title ?? 'Expense';
+            $title = $rec->description ?? 'Expense';
 
             if (!isset($categoryBreakdown[$payer])) {
                 $categoryBreakdown[$payer] = [];
