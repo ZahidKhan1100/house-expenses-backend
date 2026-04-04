@@ -17,7 +17,8 @@ class SignupRequest extends FormRequest
             'name' => 'required|string|max:120',
             'email' => 'required|email|unique:users,email',
             'password' => 'required|string|min:6',
-            'house_code' => 'nullable|string|max:10'
+            'house_code' => 'nullable|string|max:10',
+            'mode' => 'nullable|string|in:trip,house',
         ];
     }
 }

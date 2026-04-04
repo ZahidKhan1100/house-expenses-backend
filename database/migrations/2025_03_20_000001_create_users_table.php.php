@@ -17,6 +17,7 @@ return new class extends Migration {
             $table->string('password');
 
             $table->unsignedBigInteger('house_id')->nullable(); // no FK yet
+            $table->unsignedBigInteger('trip_id')->nullable();
 
             $table->string('role')->default('mate');
             $table->string('status')->default('pending');
@@ -24,6 +25,7 @@ return new class extends Migration {
             $table->string('provider')->nullable();
             $table->string('provider_id')->nullable();
             $table->string('email_verification_token')->nullable();
+            $table->string('active_mode')->nullable();
             $table->timestamps();
         });
 

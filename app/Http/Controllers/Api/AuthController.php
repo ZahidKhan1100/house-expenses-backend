@@ -22,9 +22,7 @@ class AuthController extends Controller
 
     public function login(LoginRequest $request, LoginUser $action)
     {
-        $result = $action->execute($request->validated());
-
-        return response()->json($result);
+        return $action->execute($request->validated());
     }
 
     public function logout()
