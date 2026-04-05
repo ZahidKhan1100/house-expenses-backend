@@ -28,7 +28,7 @@ Route::prefix('v1')->group(function () {
     Route::post('/resend-verification', [VerifyEmailController::class, 'resend']);
     Route::post('/check-email-verified', [AuthController::class, 'checkEmailVerified']);
 
-    Route::post('/social-login/{provider}', [SocialLoginController::class, 'login']);
+    Route::post('/social-login', [SocialLoginController::class, 'login']);
 
     // Protected routes (require Sanctum token)
     Route::middleware('auth:sanctum')->group(function () {
@@ -50,7 +50,7 @@ Route::prefix('v1')->group(function () {
         Route::get('/profile', [UserController::class, 'profile']);
         Route::get('/users/search', [UserController::class, 'search']);
 
-        
+
         Route::put('/houses/{id}', [HouseController::class, 'update']);
         Route::put('/house/join/qr', [HouseController::class, 'joinByQRCode']);
         Route::get('/house/current', [HouseController::class, 'current']);
