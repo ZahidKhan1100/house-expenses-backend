@@ -29,11 +29,15 @@ class SocialLoginController extends Controller
     private function handleGoogle($idToken)
     {
         try {
-            $client = new Google_Client([
-                'client_id' => env('GOOGLE_CLIENT_ID'),
+            $client = new Google_Client();
+
+            $payload = $client->verifyIdToken($idToken, [
+                env('GOOGLE_CLIENT_ID'),
+                env('GOOGLE_IOS_CLIENT_ID'),
+                env('GOOGLE_ANDROID_CLIENT_ID'),
+                env('GOOGLE_WEB_CLIENT_ID'),
             ]);
 
-            $payload = $client->verifyIdToken($idToken);
 
             if (!$payload) {
                 return response()->json([
