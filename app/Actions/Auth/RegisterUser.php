@@ -80,8 +80,8 @@ class RegisterUser
         }
 
         // ----------------- House Mode -----------------
-        if (!empty($data['house_code'])) {
-            $house = House::where('code', strtoupper($data['house_code']))->firstOrFail();
+        if (!empty($data['houseCode'])) {
+            $house = House::where('code', strtoupper($data['houseCode']))->firstOrFail();
             $user->update([
                 'house_id' => $house->id,
                 'role' => 'mate',
