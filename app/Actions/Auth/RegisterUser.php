@@ -7,8 +7,6 @@ use App\Models\Trip;
 use App\Models\House;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
-use Illuminate\Support\Facades\Mail;
-use App\Mail\VerifyEmail;
 
 class RegisterUser
 {
@@ -27,16 +25,14 @@ class RegisterUser
             'active_mode' => $isTripMode ? 'trip' : 'house',
         ]);
 
-        // Send email verification for both modes
-        // Mail::to($user->email)->send(new VerifyEmail($user));
+        // ----------------- Send Email -----------------
         $verificationUrl = url("/api/v1/verify-email/{$user->email_verification_token}");
-$html = view('emails.verify-email', [
-    'name' => $user->name,
-    'verificationUrl' => $verificationUrl
-])->render();
+        $html = view('emails.verify-email', [
+            'name' => $user->name,
+            'verificationUrl' => $verificationUrl
+        ])->render();
 
-sendMailgunEmail($user->email, 'Verify Your Email', $html);
-        
+        sendMailgunEmail($user->email, 'Verify Your Email', $html);
 
         // ----------------- Trip Mode -----------------
         if ($isTripMode) {
@@ -47,7 +43,6 @@ sendMailgunEmail($user->email, 'Verify Your Email', $html);
                     $trip->members()->attach($user->id);
                 }
 
-                // Joining existing trip → user role may remain 'mate'
                 $role = 'mate';
                 $status = 'approved';
                 $isNewTrip = false;
@@ -60,13 +55,11 @@ sendMailgunEmail($user->email, 'Verify Your Email', $html);
                 ]);
                 $trip->members()->attach($user->id);
 
-                // New trip → user is admin
                 $role = 'admin';
                 $status = 'admin';
                 $isNewTrip = true;
             }
 
-            // Update user for trip
             $user->update([
                 'trip_id' => $trip->id,
                 'role' => $role,
@@ -83,28 +76,34 @@ sendMailgunEmail($user->email, 'Verify Your Email', $html);
                 'user' => $user,
                 'trip_code' => $trip->code,
                 'is_new_trip' => $isNewTrip,
-                'email_verified' => false, // <- email verification pending
+                'email_verified' => false,
             ];
         }
 
         // ----------------- House Mode -----------------
-        if (!empty($data['houseCode'])) {
-            $house = House::where('code', strtoupper($data['houseCode']))->firstOrFail();
+        // Accept both snake_case and camelCase from request
+        $houseCode = $data['houseCode'] ?? $data['house_code'] ?? null;
+
+        if (!empty($houseCode)) {
+            $house = House::where('code', strtoupper($houseCode))->firstOrFail();
             $user->update([
                 'house_id' => $house->id,
                 'role' => 'mate',
                 'status' => 'approved',
             ]);
 
+            $token = $user->createToken('auth_token')->plainTextToken;
+
             return [
                 'success' => true,
                 'mode' => 'house',
+                'token' => $token,
                 'user' => $user,
                 'email_verified' => false,
             ];
         }
 
-        // Create new house
+        // ----------------- Create New House -----------------
         $house = House::create([
             'name' => $user->name . "'s House",
             'code' => strtoupper(Str::random(6)),
