@@ -4,12 +4,12 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Models\House;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Google_Client;
 use Firebase\JWT\JWT;
 use Firebase\JWT\JWK;
-use App\Actions\Auth\RegisterUser;
 
 class SocialLoginController extends Controller
 {
@@ -19,8 +19,7 @@ class SocialLoginController extends Controller
             'provider' => 'required|string',
             'access_token' => 'required|string',
             'house_code' => 'nullable|string',
-            'mode' => 'nullable|string', // 'house' or 'trip'
-            'trip_code' => 'nullable|string',
+            'mode' => 'nullable|string', // 'house'
         ]);
 
         $provider = $request->provider;
@@ -43,16 +42,15 @@ class SocialLoginController extends Controller
         $existingUser = User::where('email', $userData['email'])->first();
 
         if ($existingUser) {
-            // ❌ Email/password account → BLOCK
-            if (!is_null($existingUser->password)) {
+            if ($existingUser->provider !== $provider) {
                 return response()->json([
-                    'error' => 'Account already exists. Please login with email.'
+                    'error' => 'Account already exists. Please login with your original method.'
                 ], 400);
             }
 
             $user = $existingUser;
         } else {
-            // ✅ Create new social user (minimal data)
+            // ----------------- Create new social user -----------------
             $user = User::create([
                 'name' => $userData['name'] ?? 'Social User',
                 'email' => strtolower($userData['email']),
@@ -61,28 +59,58 @@ class SocialLoginController extends Controller
                 'provider_id' => $userData['provider_id'] ?? null,
                 'email_verified_at' => now(),
                 'status' => 'approved',
-                'active_mode' => $request->mode ?? 'house',
+                'active_mode' => 'house',
             ]);
         }
 
-        // ----------------- Handle House / Trip -----------------
-        $registerAction = new RegisterUser();
-        $result = $registerAction->execute([
-            'name' => $user->name,
-            'email' => $user->email,
-            'houseCode' => $request->house_code ?? null,
-            'mode' => $request->mode ?? 'house',
-            'trip_code' => $request->trip_code ?? null,
-        ]);
+        // ----------------- Handle House -----------------
+        $houseCode = $request->house_code ?? null;
 
-        // Ensure token is included for existing user
-        if (!isset($result['token'])) {
-            $result['token'] = $user->createToken('mobile')->plainTextToken;
+        if (!empty($houseCode)) {
+            $house = House::where('code', strtoupper($houseCode))->firstOrFail();
+            $user->update([
+                'house_id' => $house->id,
+                'role' => 'mate',
+                'status' => 'approved',
+                'active_mode' => 'house',
+            ]);
+        } else {
+            // Create new house for user
+            $house = House::create([
+                'name' => $user->name . "'s House",
+                'code' => strtoupper(Str::random(6)),
+                'admin_id' => $user->id,
+                'currency' => '$',
+            ]);
+
+            $user->update([
+                'house_id' => $house->id,
+                'role' => 'admin',
+                'status' => 'admin',
+                'active_mode' => 'house',
+            ]);
+
+            // Default categories
+            $defaultCategories = [
+                ['name' => 'Grocery', 'icon' => 'shopping-basket'],
+                ['name' => 'Rent', 'icon' => 'home'],
+            ];
+
+            foreach ($defaultCategories as $cat) {
+                $house->categories()->create($cat);
+            }
         }
 
-        $result['user'] = $user;
+        // ----------------- Generate Token -----------------
+        $token = $user->createToken('mobile')->plainTextToken;
 
-        return response()->json($result);
+        return response()->json([
+            'success' => true,
+            'mode' => 'house',
+            'token' => $token,
+            'user' => $user,
+            'email_verified' => !is_null($user->email_verified_at),
+        ]);
     }
 
     // ----------------- Google Token Verification -----------------
