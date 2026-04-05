@@ -2,63 +2,122 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Verify Your Email</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Verify Your HabiMate Account</title>
   <style>
+    /* Base Reset */
     body {
-      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-      background-color: #f9f9f9;
-      color: #333;
       margin: 0;
       padding: 0;
+      background-color: #0f172a; /* Matching your Web/App background */
+      font-family: 'Sora', 'Helvetica Neue', Helvetica, Arial, sans-serif;
     }
-    .container {
+    .wrapper {
+      width: 100%;
+      table-layout: fixed;
+      background-color: #0f172a;
+      padding-bottom: 40px;
+    }
+    .main-card {
       max-width: 600px;
       margin: 40px auto;
-      background: #fff;
-      border-radius: 12px;
-      padding: 30px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+      background-color: #1e293b; /* Deep slate to mimic the app card */
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 24px;
+      overflow: hidden;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+    }
+    .header-gradient {
+      background: linear-gradient(135deg, #FF6B6B 0%, #4E54C8 100%);
+      padding: 40px 20px;
       text-align: center;
     }
+    .content {
+      padding: 40px 30px;
+      text-align: center;
+      color: #f1f5f9;
+    }
+    .logo-text {
+      color: #ffffff;
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: -1px;
+      margin: 0;
+    }
     h1 {
-      color: #FF6A6A;
-      margin-bottom: 10px;
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 16px;
+      color: #ffffff;
     }
     p {
       font-size: 16px;
-      line-height: 1.5;
-      margin-bottom: 25px;
+      line-height: 1.6;
+      color: #94a3b8; /* Slate-400 */
+      margin-bottom: 30px;
+    }
+    .btn-wrapper {
+      margin: 35px 0;
     }
     .btn {
-      display: inline-block;
-      background: linear-gradient(90deg, #FF6A6A, #FFB88C);
-      color: #fff;
+      background-color: #ffffff;
+      color: #4E54C8 !important;
       text-decoration: none;
-      font-weight: bold;
-      padding: 14px 28px;
-      border-radius: 8px;
+      font-weight: 800;
+      padding: 16px 36px;
+      border-radius: 14px;
       font-size: 16px;
+      display: inline-block;
       transition: all 0.3s ease;
     }
-    .btn:hover {
-      transform: scale(1.05);
-      box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-    }
     .footer {
+      padding: 20px;
       font-size: 12px;
-      color: #999;
-      margin-top: 30px;
+      color: #64748b;
+      text-align: center;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .tagline {
+      color: #FF6B6B;
+      font-weight: 700;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-bottom: 8px;
+      display: block;
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>Hello {{ $name }}!</h1>
-    <p>Welcome to <strong>Home Split</strong>. Please verify your email by clicking the button below:</p>
-    
-    <a class="btn" href="{{ $verificationUrl }}">Verify My Email</a>
-    
-    <p class="footer">If you did not create this account, simply ignore this email. No action is needed.</p>
+  <div class="wrapper">
+    <div class="main-card">
+      <div class="header-gradient">
+        <p class="logo-text">HabiMate</p>
+      </div>
+
+      <div class="content">
+        <span class="tagline">Shared Living. House or Away.</span>
+        <h1>Welcome home, {{ $name }}!</h1>
+        <p>
+          You're one step away from managing your household beautifully. 
+          Please confirm your email to activate your account and start syncing with your mates.
+        </p>
+        
+        <div class="btn-wrapper">
+          <a href="{{ $verificationUrl }}" class="btn">Verify Account</a>
+        </div>
+
+        <p style="font-size: 13px;">
+          Or copy and paste this link into your browser:<br>
+          <span style="color: #4E54C8; word-break: break-all;">{{ $verificationUrl }}</span>
+        </p>
+      </div>
+
+      <div class="footer">
+        If you didn't create a HabiMate account, you can safely ignore this email.<br>
+        &copy; {{ date('Y') }} HabiMate Inc.
+      </div>
+    </div>
   </div>
 </body>
 </html>
