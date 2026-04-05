@@ -56,9 +56,9 @@
                 </p>
             @endif
 
-            <a href="habimate://login" class="block w-full py-4 rounded-2xl bg-white text-slate-900 font-extrabold text-lg shadow-xl hover:bg-slate-100 transition transform hover:-translate-y-1">
+            {{-- <a href="habimate://login" class="block w-full py-4 rounded-2xl bg-white text-slate-900 font-extrabold text-lg shadow-xl hover:bg-slate-100 transition transform hover:-translate-y-1">
                 Open HabiMate App
-            </a>
+            </a> --}}
 
             <p class="mt-8 text-xs font-bold text-slate-500 uppercase tracking-widest">
                 Thank you for joining <span class="text-rose-500">HabiMate</span>

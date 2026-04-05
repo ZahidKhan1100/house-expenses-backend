@@ -28,7 +28,15 @@ class RegisterUser
         ]);
 
         // Send email verification for both modes
-        Mail::to($user->email)->send(new VerifyEmail($user));
+        // Mail::to($user->email)->send(new VerifyEmail($user));
+        $verificationUrl = url("/api/v1/verify-email/{$user->email_verification_token}");
+$html = view('emails.verify-email', [
+    'name' => $user->name,
+    'verificationUrl' => $verificationUrl
+])->render();
+
+sendMailgunEmail($user->email, 'Verify Your Email', $html);
+        
 
         // ----------------- Trip Mode -----------------
         if ($isTripMode) {
