@@ -4,9 +4,6 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use App\Models\User;
-use App\Models\House;
-use App\Models\Record;
 use Illuminate\Support\Facades\Auth;
 
 class PaymentController extends Controller
@@ -16,31 +13,52 @@ class PaymentController extends Controller
         $user = Auth::user();
         $house = $user->house;
 
+        $month = $month ?? now()->format('Y-m');
+
         if (!$house) {
             return response()->json([
                 'mates' => [],
                 'transactions' => [],
                 'currency' => '$',
                 'available_months' => [],
-                'month' => $month ?? now()->format('Y-m'),
+                'month' => $month,
                 'paid_amounts' => [],
-                'category_breakdown' => [], // ✅ added
+                'category_breakdown' => [],
             ]);
         }
 
         $currency = $house->currency ?? '$';
-        $month = $month ?? now()->format('Y-m');
 
-        // --- Fetch all mates ---
-        $mates = $house->mates()
-            ->whereIn('status', ['approved', 'admin'])
-            ->get(['id', 'name']);
+        // --- Fetch all records for the month ---
+        $records = $house->records()
+            ->where('month', $month)
+            ->get();
 
-        if ($house->admin && !$mates->contains('id', $house->admin->id)) {
-            $mates->push($house->admin->only(['id', 'name']));
+        // --- Extract mates from records JSON ---
+        $matesMap = [];
+
+        foreach ($records as $rec) {
+            // Add payer
+            if (!isset($matesMap[$rec->paid_by])) {
+                $matesMap[$rec->paid_by] = $rec->paid_by_name ?? 'Unknown';
+            }
+
+            // Add included mates
+            $includedMates = is_array($rec->included_mates) ? $rec->included_mates : [];
+            foreach ($includedMates as $mate) {
+                if (!isset($matesMap[$mate['id']])) {
+                    $matesMap[$mate['id']] = $mate['name'] ?? 'Unknown';
+                }
+            }
         }
 
-        $mateIds = $mates->pluck('id')->toArray();
+        // --- Prepare mates array ---
+        $mates = [];
+        foreach ($matesMap as $id => $name) {
+            $mates[] = ['id' => $id, 'name' => $name];
+        }
+
+        $mateIds = array_keys($matesMap);
 
         // --- Available months ---
         $availableMonths = $house->records()
@@ -50,74 +68,62 @@ class PaymentController extends Controller
             ->pluck('month')
             ->toArray();
 
-        // --- Records ---
-        $records = $house->records()
-            ->where('month', $month)
-            ->get();
-
         // --- Paid amounts ---
         $paidAmounts = [];
         foreach ($mates as $mate) {
-            $paidAmounts[$mate->id] = $records
-                ->where('paid_by', $mate->id)
+            $paidAmounts[$mate['id']] = $records
+                ->where('paid_by', $mate['id'])
                 ->sum('amount');
         }
 
-        // ================================
-        // 🔥 CATEGORY BREAKDOWN (NEW)
-        // ================================
+        // --- Category breakdown ---
         $categoryBreakdown = [];
-
         foreach ($records as $rec) {
-
-            $payer = $rec->paid_by;
-
-            if (!in_array($payer, $mateIds))
-                continue;
-
+            $payerName = $rec->paid_by_name ?? 'Unknown';
             $category = $rec->category ? $rec->category->name : 'Other';
             $title = $rec->description ?? 'Expense';
 
-            if (!isset($categoryBreakdown[$payer])) {
-                $categoryBreakdown[$payer] = [];
+            if (!isset($categoryBreakdown[$payerName])) {
+                $categoryBreakdown[$payerName] = [];
             }
 
-            if (!isset($categoryBreakdown[$payer][$category])) {
-                $categoryBreakdown[$payer][$category] = [
+            if (!isset($categoryBreakdown[$payerName][$category])) {
+                $categoryBreakdown[$payerName][$category] = [
                     'total' => 0,
                     'items' => [],
                 ];
             }
 
-            // ✅ Add item (Milk, Bread etc.)
-            $categoryBreakdown[$payer][$category]['items'][] = [
+            $categoryBreakdown[$payerName][$category]['items'][] = [
                 'title' => $title,
                 'amount' => (float) $rec->amount,
             ];
 
-            // ✅ Add total
-            $categoryBreakdown[$payer][$category]['total'] += $rec->amount;
+            $categoryBreakdown[$payerName][$category]['total'] += $rec->amount;
         }
 
         // --- Calculate balances ---
-        $balance = [];
-        foreach ($mates as $mate)
-            $balance[$mate->id] = 0;
+        $balance = array_fill_keys($mateIds, 0);
 
         foreach ($records as $rec) {
             $included = is_array($rec->included_mates) ? $rec->included_mates : [];
 
-            if (!in_array($rec->paid_by, $included)) {
-                $included[] = $rec->paid_by;
+            // Ensure payer is included
+            $foundPayer = collect($included)->firstWhere('id', $rec->paid_by);
+            if (!$foundPayer) {
+                $included[] = ['id' => $rec->paid_by, 'name' => $rec->paid_by_name];
             }
 
-            $included = array_filter($included, fn($id) => in_array($id, $mateIds));
-            if (count($included) === 0)
+            // Only include mates in this month's record
+            $included = array_filter($included, fn($m) => in_array($m['id'], $mateIds));
+            $countIncluded = count($included);
+            if ($countIncluded === 0)
                 continue;
 
-            $split = $rec->amount / count($included);
+            $split = $rec->amount / $countIncluded;
 
-            foreach ($included as $id) {
+            foreach ($included as $mate) {
+                $id = $mate['id'];
                 if ($id == $rec->paid_by) {
                     $balance[$id] += $rec->amount - $split;
                 } else {
@@ -139,13 +145,11 @@ class PaymentController extends Controller
 
         $transactions = [];
         $i = $j = 0;
-
         while ($i < count($debtors) && $j < count($creditors)) {
             $debtor = &$debtors[$i];
             $creditor = &$creditors[$j];
 
             $amt = min($debtor['amount'], $creditor['amount']);
-
             $transactions[] = [
                 'from' => $debtor['id'],
                 'to' => $creditor['id'],
@@ -161,7 +165,6 @@ class PaymentController extends Controller
                 $j++;
         }
 
-        // --- Final Response ---
         return response()->json([
             'mates' => $mates,
             'transactions' => $transactions,
@@ -169,7 +172,7 @@ class PaymentController extends Controller
             'available_months' => $availableMonths,
             'month' => $month,
             'paid_amounts' => $paidAmounts,
-            'category_breakdown' => $categoryBreakdown, // 🔥 FINAL ADD
+            'category_breakdown' => $categoryBreakdown,
         ]);
     }
 }

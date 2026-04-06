@@ -14,7 +14,9 @@ class Record extends Model
         'description',
         'included_mates',
         'paid_by',
-        'timestamp'
+        'timestamp',
+        'added_by_name',
+        'paid_by_name',
     ];
 
     protected $casts = [

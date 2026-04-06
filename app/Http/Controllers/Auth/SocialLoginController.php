@@ -39,7 +39,9 @@ class SocialLoginController extends Controller
         }
 
         // ----------------- Check existing user -----------------
-        $existingUser = User::where('email', $userData['email'])->first();
+        $email = strtolower($userData['email']);
+
+        $existingUser = User::where('email', $email)->first();
 
         if ($existingUser) {
             if ($existingUser->provider !== $provider) {
@@ -125,7 +127,8 @@ class SocialLoginController extends Controller
                 env('GOOGLE_WEB_CLIENT_ID'),
             ]);
 
-            if (!$payload) return null;
+            if (!$payload)
+                return null;
 
             return [
                 'email' => $payload['email'] ?? null,
@@ -146,7 +149,8 @@ class SocialLoginController extends Controller
             $header = json_decode(base64_decode($tokenParts[0]), true);
             $key = collect($appleKeys['keys'])->firstWhere('kid', $header['kid']);
 
-            if (!$key) return null;
+            if (!$key)
+                return null;
 
             $publicKey = JWK::parseKey($key);
             $payload = JWT::decode($idToken, $publicKey);
