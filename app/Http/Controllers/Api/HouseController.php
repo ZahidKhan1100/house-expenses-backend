@@ -7,13 +7,17 @@ use App\Http\Controllers\Controller;
 use App\Actions\Houses\CreateHouse;
 use App\Actions\Houses\JoinHouse;
 use App\Http\Requests\CreateHouseRequest;
+use App\Models\User;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use App\Models\House;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class HouseController extends Controller
 {
-     use AuthorizesRequests;
+    use AuthorizesRequests;
     public function create(CreateHouseRequest $request, CreateHouse $action)
     {
         $house = $action->handle($request->validated(), $request->user());
@@ -91,6 +95,193 @@ class HouseController extends Controller
                 'name' => $house->name,
                 'house_code' => $house->code,
             ]
+        ]);
+    }
+
+    public function leaveHouse()
+    {
+        $user = Auth::user();
+
+        if (!$user->house_id) {
+            return response()->json(['error' => 'Not in any house'], 400);
+        }
+
+        $house = $user->house;
+
+        if (!$house) {
+            return response()->json(['error' => 'House not found'], 404);
+        }
+
+        // 🧠 If admin → transfer
+        if ($user->role === 'admin') {
+
+            $nextUser = User::where('house_id', $house->id)
+                ->where('id', '!=', $user->id)
+                ->whereIn('status', ['approved', 'admin'])
+                ->first();
+
+            if ($nextUser) {
+                // ✅ Assign new admin
+                $house->update([
+                    'admin_id' => $nextUser->id
+                ]);
+
+                $nextUser->update([
+                    'role' => 'admin',
+                    'status' => 'admin'
+                ]);
+            } else {
+                // No users left
+                $house->update([
+                    'admin_id' => null
+                ]);
+
+
+            }
+        }
+
+        // 🚪 Remove current user
+        $user->update([
+            'house_id' => null,
+            'role' => 'leave',
+            'status' => 'pending',
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Left house successfully'
+        ]);
+    }
+
+    public function deleteAccount()
+    {
+        $user = Auth::user();
+
+        return DB::transaction(function () use ($user) {
+
+            $house = $user->house;
+
+            // -------------------------------
+            // 🧠 Handle admin transfer
+            // -------------------------------
+            if ($house && $user->role === 'admin') {
+
+                $nextUser = User::where('house_id', $house->id)
+                    ->where('id', '!=', $user->id)
+                    ->whereIn('status', ['approved', 'admin'])
+                    ->orderBy('created_at')
+                    ->first();
+
+                if ($nextUser) {
+                    // ✅ Transfer admin
+                    $house->update([
+                        'admin_id' => $nextUser->id
+                    ]);
+
+                    $nextUser->update([
+                        'role' => 'admin',
+                        'status' => 'admin'
+                    ]);
+                } else {
+                    // ✅ No users left → keep house but remove admin
+                    $house->update([
+                        'admin_id' => null
+                    ]);
+                }
+            }
+
+            // -------------------------------
+            // 🚪 Remove from house + mark deleted
+            // -------------------------------
+            $user->update([
+                'house_id' => null,
+                'role' => null,
+                'status' => 'deleted',
+
+                // 🔥 FREE EMAIL (CRITICAL)
+                'email' => 'deleted_' . $user->id . '_' . time() . '@example.com',
+                'name' => 'Deleted User',
+                'provider_id' => null,
+                'password' => null,
+            ]);
+
+            // -------------------------------
+            // 🔐 Logout everywhere
+            // -------------------------------
+            $user->tokens()->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Account deleted successfully'
+            ]);
+        });
+    }
+
+    public function createHouse(Request $request)
+    {
+        $user = Auth::user();
+
+        if ($user->house_id) {
+            return response()->json([
+                'message' => 'User already belongs to a house.'
+            ], 400);
+        }
+
+        // Create the new house
+        $house = House::create([
+            'name' => $user->name . "'s House",
+            'code' => strtoupper(Str::random(6)),
+            'admin_id' => $user->id,
+            'currency' => '$', // default, can make dynamic later
+        ]);
+
+        // Update user role & house
+        $user->update([
+            'house_id' => $house->id,
+            'role' => 'admin',
+            'status' => 'admin',
+        ]);
+
+        // Default categories
+        $defaultCategories = [
+            ['name' => 'Grocery', 'icon' => 'shopping-basket'],
+            ['name' => 'Rent', 'icon' => 'home'],
+        ];
+
+        foreach ($defaultCategories as $cat) {
+            $house->categories()->create($cat);
+        }
+
+        return response()->json([
+            'message' => 'House created successfully',
+            'house' => $house
+        ], 201);
+    }
+
+    public function joinHouse(Request $request)
+    {
+        $user = Auth::user();
+        $request->validate([
+            'house_code' => 'required|string|exists:houses,code',
+        ]);
+
+        $house = House::where('code', $request->house_code)->first();
+
+        if (!$house) {
+            return response()->json(['message' => 'House not found'], 404);
+        }
+
+        $user->update([
+            'house_id' => $house->id,
+            'role' => 'mate',
+            'status' => 'approved',
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Joined house successfully',
+            'house' => $house,
+            'user' => $user,
         ]);
     }
 }

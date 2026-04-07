@@ -39,6 +39,13 @@ Route::prefix('v1')->group(function () {
         Route::post('/houses/create', [HouseController::class, 'create']);
         Route::post('/houses/join', [HouseController::class, 'join']);
         Route::get('/houses/{house}', [HouseController::class, 'show']);
+        Route::post('/leave-house', [HouseController::class, 'leaveHouse']);
+        Route::post('/delete-account', [HouseController::class, 'deleteAccount']);
+
+        Route::post('/join-house', [HouseController::class, 'joinHouse']);
+        Route::post('/house/create', [HouseController::class, 'createHouse']);
+
+
         // Expenses
         Route::get('/expenses', [ExpenseController::class, 'index']);
 

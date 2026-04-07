@@ -68,38 +68,40 @@ class SocialLoginController extends Controller
         // ----------------- Handle House -----------------
         $houseCode = $request->house_code ?? null;
 
-        if (!empty($houseCode)) {
-            $house = House::where('code', strtoupper($houseCode))->firstOrFail();
-            $user->update([
-                'house_id' => $house->id,
-                'role' => 'mate',
-                'status' => 'approved',
-                'active_mode' => 'house',
-            ]);
-        } else {
-            // Create new house for user
-            $house = House::create([
-                'name' => $user->name . "'s House",
-                'code' => strtoupper(Str::random(6)),
-                'admin_id' => $user->id,
-                'currency' => '$',
-            ]);
+        if (!$user->house_id) {
 
-            $user->update([
-                'house_id' => $house->id,
-                'role' => 'admin',
-                'status' => 'admin',
-                'active_mode' => 'house',
-            ]);
+            if (!empty($houseCode)) {
+                $house = House::where('code', strtoupper($houseCode))->firstOrFail();
 
-            // Default categories
-            $defaultCategories = [
-                ['name' => 'Grocery', 'icon' => 'shopping-basket'],
-                ['name' => 'Rent', 'icon' => 'home'],
-            ];
+                $user->update([
+                    'house_id' => $house->id,
+                    'role' => 'mate',
+                    'status' => 'approved',
+                    'active_mode' => 'house',
+                ]);
 
-            foreach ($defaultCategories as $cat) {
-                $house->categories()->create($cat);
+            } else {
+                // ✅ Only create house if user has NONE
+                $house = House::create([
+                    'name' => $user->name . "'s House",
+                    'code' => strtoupper(Str::random(6)),
+                    'admin_id' => $user->id,
+                    'currency' => '$',
+                ]);
+
+                $user->update([
+                    'house_id' => $house->id,
+                    'role' => 'admin',
+                    'status' => 'admin',
+                    'active_mode' => 'house',
+                ]);
+
+                foreach ([
+                    ['name' => 'Grocery', 'icon' => 'shopping-basket'],
+                    ['name' => 'Rent', 'icon' => 'home'],
+                ] as $cat) {
+                    $house->categories()->create($cat);
+                }
             }
         }
 
