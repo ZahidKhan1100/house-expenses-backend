@@ -1,26 +1,65 @@
 <?php
 
+// app/Http/Controllers/Api/SettlementController.php
+
 namespace App\Http\Controllers\Api;
+
 use App\Http\Controllers\Controller;
-use App\Http\Requests\StoreSettlementRequest;
-use App\Actions\Settlement\CreateSettlementAction;
+use Illuminate\Http\Request;
+use App\Services\SettlementService;
+use App\Models\Settlement;
+use Illuminate\Support\Facades\Auth;
 
 class SettlementController extends Controller
 {
-    public function store(StoreSettlementRequest $request, CreateSettlementAction $action)
+    public function generate(Request $request, SettlementService $service)
     {
-        try {
-            $settlement = $action->execute($request->validated());
+        $user = Auth::user();
+        $month = $request->month;
 
-            return response()->json([
-                'success' => true,
-                'settlement' => $settlement
-            ], 201);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage()
-            ], 400);
-        }
+        \Log::info('SETTLEMENT CONTROLLER HIT', [
+            'user_id' => auth()->id(),
+            'month' => request('month')
+        ]);
+
+        $transactions = $service->generate($user->house_id, $month);
+
+        return response()->json([
+            'success' => true,
+            'transactions' => $transactions,
+        ]);
+    }
+
+    public function index(Request $request)
+    {
+        $user = Auth::user();
+
+        $data = Settlement::where('house_id', $user->house_id)
+            ->where('month', $request->month)
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'settlements' => $data,
+        ]);
+    }
+
+    public function markPaid($id)
+    {
+        $user = auth()->user();
+
+        $settlement = Settlement::where('id', $id)
+            ->where('house_id', $user->house_id)
+            ->firstOrFail();
+
+        $settlement->update([
+            'status' => 'paid',
+            'settled_at' => now(),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Settlement marked as paid',
+        ]);
     }
 }

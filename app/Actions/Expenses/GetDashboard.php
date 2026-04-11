@@ -39,10 +39,8 @@ class GetDashboard
         // --- Loop through house expenses (month-based) ---
         $house->expenses()->with('records')->get()->each(function ($expenseMonth) use (&$categories, &$totalSpent) {
 
-            Log::info('Processing expense month: ' . $expenseMonth->id . ' | Month: ' . $expenseMonth->month);
 
             foreach ($expenseMonth->records as $record) {
-                Log::info('Record ID: ' . $record->id . ' | Category: ' . $record->category_id . ' | Amount: ' . $record->amount);
 
                 $totalSpent += $record->amount;
 
@@ -64,7 +62,6 @@ class GetDashboard
                 ];
             });
 
-        Log::info('Dashboard summary: total_spent=' . $totalSpent . ' | Categories=' . json_encode($categories));
 
         return [
             'total_spent' => round($totalSpent, 2),

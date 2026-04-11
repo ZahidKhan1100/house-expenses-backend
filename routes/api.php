@@ -77,7 +77,11 @@ Route::prefix('v1')->group(function () {
         Route::get('/house/current/expenses', [InsightsController::class, 'getExpensesByMonth']);
 
         // Settlement
-        Route::post('/settlements', [SettlementController::class, 'store']);
+        // Route::post('/settlements', [SettlementController::class, 'store']);
+
+        Route::get('/settlements', [SettlementController::class, 'index']);
+        Route::post('/settlements/generate', [SettlementController::class, 'generate']);
+        Route::post('/settlements/{id}/mark-paid', [SettlementController::class, 'markPaid']);
 
         // Trips
 

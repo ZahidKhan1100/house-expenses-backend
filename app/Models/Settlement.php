@@ -10,11 +10,13 @@ class Settlement extends Model
     use HasFactory;
 
     protected $fillable = [
-        'expense_id',
+        'house_id',
+        'month',
         'from_user_id',
         'to_user_id',
         'amount',
-        'is_paid',
+        'status',
+        'settled_at',
     ];
 
     public function expense()

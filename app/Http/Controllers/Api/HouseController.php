@@ -193,17 +193,7 @@ class HouseController extends Controller
             // -------------------------------
             // 🚪 Remove from house + mark deleted
             // -------------------------------
-            $user->update([
-                'house_id' => null,
-                'role' => null,
-                'status' => 'deleted',
-
-                // 🔥 FREE EMAIL (CRITICAL)
-                'email' => 'deleted_' . $user->id . '_' . time() . '@example.com',
-                'name' => 'Deleted User',
-                'provider_id' => null,
-                'password' => null,
-            ]);
+            $user->delete();
 
             // -------------------------------
             // 🔐 Logout everywhere

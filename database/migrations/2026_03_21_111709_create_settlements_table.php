@@ -13,12 +13,22 @@ return new class extends Migration
     {
        Schema::create('settlements', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('expense_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('from_user_id')->constrained('users')->cascadeOnDelete();
-            $table->foreignId('to_user_id')->constrained('users')->cascadeOnDelete();
-            $table->decimal('amount', 12, 2);
-            $table->boolean('is_paid')->default(false);
+
+            $table->unsignedBigInteger('house_id');
+            $table->string('month'); // YYYY-MM
+
+            $table->unsignedBigInteger('from_user_id');
+            $table->unsignedBigInteger('to_user_id');
+
+            $table->decimal('amount', 10, 2);
+
+            $table->enum('status', ['pending', 'paid'])->default('pending');
+
+            $table->timestamp('settled_at')->nullable();
+
             $table->timestamps();
+
+            $table->index(['house_id', 'month']);
         });
     }
 

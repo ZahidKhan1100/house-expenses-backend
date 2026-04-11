@@ -3,13 +3,14 @@
 namespace App\Actions\Auth;
 
 use Illuminate\Support\Facades\Auth;
-use App\Models\Trip;
 
 class LoginUser
 {
     public function execute(array $data)
     {
-        // Attempt login
+        // =====================================================
+        // 🔐 Attempt login
+        // =====================================================
         if (!Auth::attempt($data)) {
             return response()->json([
                 'success' => false,
@@ -19,7 +20,19 @@ class LoginUser
 
         $user = auth()->user();
 
-        // Check email verification
+        // =====================================================
+        // 🗑️ BLOCK SOFT-DELETED USERS SAFELY
+        // =====================================================
+        if ($user->trashed()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Account deleted. Please sign up again to restore it.',
+            ], 403);
+        }
+
+        // =====================================================
+        // 📧 EMAIL VERIFICATION CHECK
+        // =====================================================
         if (!$user->email_verified_at) {
             return response()->json([
                 'success' => false,
@@ -28,25 +41,28 @@ class LoginUser
             ], 403);
         }
 
-        // Create token
+        // =====================================================
+        // 🔐 CREATE TOKEN
+        // =====================================================
         $token = $user->createToken('mobile')->plainTextToken;
 
-        // Prepare trip data if active_mode is trip
-        $trip = null;
-        if ($user->active_mode === 'trip' && $user->trip_id) {
-            $trip = Trip::find($user->trip_id);
+        // =====================================================
+        // 🏠 LOAD HOUSE DATA (ONLY SYSTEM NOW)
+        // =====================================================
+        $house = null;
 
-            // Only return trip if active and has dates
-            if ($trip && ($trip->status !== 'active' || !$trip->start_date || !$trip->end_date)) {
-                $trip = null; // incomplete trip
-            }
+        if ($user->house_id) {
+            $house = $user->house()->with(['categories'])->first();
         }
 
+        // =====================================================
+        // RESPONSE
+        // =====================================================
         return response()->json([
             'success' => true,
             'token' => $token,
             'user' => $user,
-            'active_trip' => $trip, // null if not ready
+            'house' => $house,
         ], 200);
     }
 }

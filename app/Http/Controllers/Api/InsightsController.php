@@ -54,10 +54,9 @@ class InsightsController extends Controller
         // ----- Bar Chart: Individual Contributions -----
         $individualTotals = DB::table('records')
             ->join('expenses', 'records.expense_id', '=', 'expenses.id')
-            ->join('users', 'records.added_by', '=', 'users.id')
             ->where('expenses.house_id', $houseId)
-            ->selectRaw('users.name, SUM(records.amount) as total')
-            ->groupBy('users.name')
+            ->selectRaw('records.paid_by_name as name, SUM(records.amount) as total')
+            ->groupBy('records.paid_by_name')
             ->get()
             ->map(function ($item) {
                 return [

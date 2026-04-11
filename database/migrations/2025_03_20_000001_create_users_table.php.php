@@ -26,6 +26,7 @@ return new class extends Migration {
             $table->string('provider_id')->nullable();
             $table->string('email_verification_token')->nullable();
             $table->string('active_mode')->nullable();
+            $table->softDeletes();
             $table->timestamps();
         });
 

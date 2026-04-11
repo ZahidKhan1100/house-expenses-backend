@@ -5,12 +5,14 @@ namespace App\Actions\Expenses;
 use App\Models\Record;
 use App\Models\User;
 use App\Models\Expense;
+use App\Services\SettlementService;
 use Illuminate\Support\Facades\DB;
 
 class AddRecord
 {
     public function handle(User $user, array $data): Record
     {
+        \Log::info('🔥 AddRecord started');
         return DB::transaction(function () use ($user, $data) {
 
             // Get or create the current expense month
@@ -49,6 +51,16 @@ class AddRecord
                 'paid_by_name' => $paidByUser?->name ?? 'Unknown',
                 'timestamp' => now(),
             ]);
+
+            \Log::info('Expense check', [
+                'expense' => $expense
+            ]);
+
+            app(SettlementService::class)->generate(
+                $user->house_id,
+                $expense->month
+            );
+
 
             return $record->load('category'); // eager load category
         });
