@@ -15,11 +15,12 @@ class AddRecord
         \Log::info('🔥 AddRecord started');
         return DB::transaction(function () use ($user, $data) {
 
+        $month = $data['month'] ?? now()->format('Y-m');
             // Get or create the current expense month
             $expense = Expense::firstOrCreate(
                 [
                     'house_id' => $user->house_id,
-                    'month' => $data['month'] ?? now()->format('Y-m'),
+                    'month' => $month,
                 ]
             );
 

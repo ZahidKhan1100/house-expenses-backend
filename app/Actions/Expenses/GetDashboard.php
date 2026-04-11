@@ -3,7 +3,6 @@
 namespace App\Actions\Expenses;
 
 use App\Models\User;
-use Illuminate\Support\Facades\Log;
 
 class GetDashboard
 {
@@ -11,47 +10,55 @@ class GetDashboard
     {
         $house = $user->house;
 
-        // If user has no house
         if (!$house) {
             return [
                 'total_spent' => 0,
                 'currency' => '$',
                 'categories' => [],
                 'mates' => [],
+                'month' => now()->format('Y-m'),
             ];
         }
 
-        // --- Fetch categories for this house as array ---
+        // ✅ CURRENT MONTH (you can later pass from frontend if needed)
+        $month = now()->format('Y-m');
+
+        // ✅ Get ONLY current month expense
+        $expenseMonth = $house->expenses()
+            ->where('month', $month)
+            ->with(['records.category'])
+            ->first();
+
+        $records = $expenseMonth?->records ?? collect();
+
+        // --- Categories ---
         $categories = $house->categories()
             ->get()
             ->mapWithKeys(function ($cat) {
-                return [$cat->id => [
-                    'id' => $cat->id,
-                    'name' => $cat->name,
-                    'icon' => $cat->icon,
-                    'total' => 0, // initialize
-                ]];
+                return [
+                    $cat->id => [
+                        'id' => $cat->id,
+                        'name' => $cat->name,
+                        'icon' => $cat->icon,
+                        'total' => 0,
+                    ]
+                ];
             })
-            ->toArray(); // convert to array for direct modification
+            ->toArray();
 
         $totalSpent = 0;
 
-        // --- Loop through house expenses (month-based) ---
-        $house->expenses()->with('records')->get()->each(function ($expenseMonth) use (&$categories, &$totalSpent) {
+        // --- Process only current month records ---
+        foreach ($records as $record) {
 
+            $totalSpent += $record->amount;
 
-            foreach ($expenseMonth->records as $record) {
-
-                $totalSpent += $record->amount;
-
-                // Safely add to category total if category exists
-                if ($record->category_id && isset($categories[$record->category_id])) {
-                    $categories[$record->category_id]['total'] += $record->amount;
-                }
+            if ($record->category_id && isset($categories[$record->category_id])) {
+                $categories[$record->category_id]['total'] += $record->amount;
             }
-        });
+        }
 
-        // --- Prepare mates list ---
+        // --- Mates ---
         $mates = $house->mates()
             ->get()
             ->map(function ($mate) {
@@ -62,12 +69,12 @@ class GetDashboard
                 ];
             });
 
-
         return [
             'total_spent' => round($totalSpent, 2),
             'currency' => $house->currency ?? '$',
-            'categories' => array_values($categories), // reindex array
+            'categories' => array_values($categories),
             'mates' => $mates,
+            'month' => $month,
         ];
     }
 }
