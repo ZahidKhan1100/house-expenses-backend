@@ -14,6 +14,8 @@ class Settlement extends Model
         'month',
         'from_user_id',
         'to_user_id',
+        'from_name',
+        'to_name',
         'amount',
         'status',
         'settled_at',
