@@ -48,6 +48,7 @@ class SettlementService
         // delete old settlements
         Settlement::where('house_id', $houseId)
             ->where('month', $month)
+            ->where('status', 'pending') // only reset unpaid suggestions
             ->delete();
 
 
@@ -64,6 +65,7 @@ class SettlementService
                 'from_name' => $fromUser?->name ?? 'Unknown',
                 'to_name' => $toUser?->name ?? 'Unknown',
                 'amount' => $tx['amount'],
+                'status' => 'pending', // 🔥 IMPORTANT
             ]);
         }
 
