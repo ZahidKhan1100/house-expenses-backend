@@ -30,13 +30,54 @@ class SettlementController extends Controller
     {
         $user = Auth::user();
 
-        $data = Settlement::where('house_id', $user->house_id)
+        $settlements = Settlement::where('house_id', $user->house_id)
             ->where('month', $request->month)
             ->get();
 
+        // ----------------------------
+        // PAID AMOUNTS MAP
+        // ----------------------------
+        $paidMap = [];
+
+        foreach ($settlements->where('status', 'paid') as $paid) {
+            $key = $paid->from_user_id . '-' . $paid->to_user_id;
+
+            if (!isset($paidMap[$key])) {
+                $paidMap[$key] = 0;
+            }
+
+            $paidMap[$key] += $paid->amount;
+        }
+
+        // ----------------------------
+        // BUILD FINAL PENDING LIST
+        // ----------------------------
+        $pending = [];
+
+        foreach ($settlements->where('status', 'pending') as $s) {
+
+            $key = $s->from_user_id . '-' . $s->to_user_id;
+
+            $paidAmount = $paidMap[$key] ?? 0;
+
+            $remaining = $s->amount - $paidAmount;
+
+            if ($remaining > 0.01) {
+                $pending[] = [
+                    'id' => $s->id,
+                    'from_user_id' => $s->from_user_id,
+                    'to_user_id' => $s->to_user_id,
+                    'from_name' => $s->from_name,
+                    'to_name' => $s->to_name,
+                    'amount' => round($remaining, 2),
+                    'status' => 'pending',
+                ];
+            }
+        }
+
         return response()->json([
             'success' => true,
-            'settlements' => $data,
+            'settlements' => $pending,
         ]);
     }
 
