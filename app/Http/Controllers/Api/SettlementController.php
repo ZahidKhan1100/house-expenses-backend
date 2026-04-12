@@ -17,10 +17,6 @@ class SettlementController extends Controller
         $user = Auth::user();
         $month = $request->month;
 
-        \Log::info('SETTLEMENT CONTROLLER HIT', [
-            'user_id' => auth()->id(),
-            'month' => request('month')
-        ]);
 
         $transactions = $service->generate($user->house_id, $month);
 
