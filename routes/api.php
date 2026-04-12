@@ -29,9 +29,11 @@ Route::prefix('v1')->group(function () {
     // Public routes
     Route::post('/signup', [AuthController::class, 'signup']);
     Route::post('/login', [AuthController::class, 'login']);
-    Route::get('/verify-email/{token}', [VerifyEmailController::class, 'verify']);
+    // Route::get('/verify-email/{token}', [VerifyEmailController::class, 'verify']);
     Route::post('/resend-verification', [VerifyEmailController::class, 'resend']);
     Route::post('/check-email-verified', [AuthController::class, 'checkEmailVerified']);
+    Route::get('/verify-email/{token}', [VerifyEmailController::class, 'verify'])
+    ->name('verify.email');
 
     Route::post('/social-login', [SocialLoginController::class, 'login']);
 

@@ -49,7 +49,9 @@ class RegisterUser
         // =====================================================
         // 📧 SEND VERIFICATION EMAIL
         // =====================================================
-        $verificationUrl = url("/api/v1/verify-email/{$user->email_verification_token}");
+        $verificationUrl = route('verify.email', [
+            'token' => $user->email_verification_token
+        ]);
 
         $html = view('emails.verify-email', [
             'name' => $user->name,
