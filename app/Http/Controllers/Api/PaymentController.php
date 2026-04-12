@@ -308,22 +308,35 @@ class PaymentController extends Controller
         // =========================
         // ✅ APPLY SETTLEMENTS (FIX 🔥)
         // =========================
+
+        // =========================
+// ✅ APPLY SETTLEMENTS (CORRECT LOGIC)
+// =========================
         $settlements = Settlement::where('house_id', $house->id)
             ->where('status', 'paid')
             ->get();
 
         foreach ($settlements as $settlement) {
-            $from = $settlement->from_user_id; // debtor
-            $to = $settlement->to_user_id;     // creditor
+
+            $from = $settlement->from_user_id;
+            $to = $settlement->to_user_id;
             $amount = $settlement->amount;
 
-            if (isset($balance[$from])) {
-                $balance[$from] += $amount;
+            // normalize keys
+            if (!isset($balance[$from]) || !isset($balance[$to])) {
+                continue;
             }
 
-            if (isset($balance[$to])) {
-                $balance[$to] -= $amount;
-            }
+            /**
+             * IMPORTANT:
+             * Settlement means:
+             * "from already paid to 'to'"
+             *
+             * So we REVERSE the outstanding debt:
+             */
+
+            $balance[$from] -= $amount;
+            $balance[$to] += $amount;
         }
 
         // =========================
