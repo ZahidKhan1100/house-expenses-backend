@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\User;
+use App\Services\SettlementService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -133,7 +135,16 @@ class PaymentController extends Controller
         }
 
         // =========================
-        // ✅ TRANSACTIONS
+        // ✅ SUBTRACT COMPLETED SETTLEMENTS (REAL PAYMENTS)
+        // =========================
+        $balance = app(SettlementService::class)->applyPaidSettlementsToNetBalances(
+            $house->id,
+            $month,
+            $balance,
+        );
+
+        // =========================
+        // ✅ TRANSACTIONS (REMAINING NET AFTER PAID SETTLEMENTS)
         // =========================
         $creditors = [];
         $debtors = [];
@@ -169,8 +180,23 @@ class PaymentController extends Controller
                 $j++;
         }
 
+        // Ensure names exist for anyone appearing only in settlement-adjusted flows
+        $txUserIds = collect($transactions)
+            ->flatMap(fn ($tx) => [$tx['from'], $tx['to']])
+            ->unique()
+            ->all();
+        $existingMateIds = $mates->pluck('id')->all();
+        foreach ($txUserIds as $tid) {
+            if (!in_array($tid, $existingMateIds, true)) {
+                $mates->push([
+                    'id' => $tid,
+                    'name' => User::find($tid)?->name ?? 'Unknown',
+                ]);
+            }
+        }
+
         return response()->json([
-            'mates' => $mates,
+            'mates' => $mates->values(),
             'transactions' => $transactions,
             'currency' => $currency,
             'available_months' => $availableMonths,

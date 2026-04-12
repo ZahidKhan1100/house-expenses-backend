@@ -5,7 +5,6 @@ namespace App\Actions\Expenses;
 use App\Models\Record;
 use App\Models\User;
 use App\Models\Expense;
-use App\Services\SettlementService;
 use Illuminate\Support\Facades\DB;
 
 class AddRecord
@@ -56,12 +55,6 @@ class AddRecord
             \Log::info('Expense check', [
                 'expense' => $expense
             ]);
-
-            app(SettlementService::class)->generate(
-                $user->house_id,
-                $expense->month
-            );
-
 
             return $record->load('category'); // eager load category
         });

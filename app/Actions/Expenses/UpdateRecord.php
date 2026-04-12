@@ -5,7 +5,6 @@ namespace App\Actions\Expenses;
 use App\Models\Record;
 use App\Models\User;
 use App\Models\Expense;
-use App\Services\SettlementService;
 use Illuminate\Support\Facades\DB;
 
 class UpdateRecord
@@ -69,12 +68,6 @@ class UpdateRecord
                 // ⚠️ Keep or update depending on your design
                 'timestamp' => now(),
             ]);
-
-            // ✅ 6. Regenerate settlements (CRITICAL)
-            app(SettlementService::class)->generate(
-                $user->house_id,
-                $expense->month
-            );
 
             return $record->load('category');
         });

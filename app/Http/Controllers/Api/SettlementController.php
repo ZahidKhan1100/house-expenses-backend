@@ -29,55 +29,32 @@ class SettlementController extends Controller
     public function index(Request $request)
     {
         $user = Auth::user();
+        $house = $user->house;
 
         $settlements = Settlement::where('house_id', $user->house_id)
             ->where('month', $request->month)
+            ->orderByDesc('created_at')
             ->get();
 
-        // ----------------------------
-        // PAID AMOUNTS MAP
-        // ----------------------------
-        $paidMap = [];
-
-        foreach ($settlements->where('status', 'paid') as $paid) {
-            $key = $paid->from_user_id . '-' . $paid->to_user_id;
-
-            if (!isset($paidMap[$key])) {
-                $paidMap[$key] = 0;
-            }
-
-            $paidMap[$key] += $paid->amount;
-        }
-
-        // ----------------------------
-        // BUILD FINAL PENDING LIST
-        // ----------------------------
-        $pending = [];
-
-        foreach ($settlements->where('status', 'pending') as $s) {
-
-            $key = $s->from_user_id . '-' . $s->to_user_id;
-
-            $paidAmount = $paidMap[$key] ?? 0;
-
-            $remaining = $s->amount - $paidAmount;
-
-            if ($remaining > 0.01) {
-                $pending[] = [
-                    'id' => $s->id,
-                    'from_user_id' => $s->from_user_id,
-                    'to_user_id' => $s->to_user_id,
-                    'from_name' => $s->from_name,
-                    'to_name' => $s->to_name,
-                    'amount' => round($remaining, 2),
-                    'status' => 'pending',
-                ];
-            }
-        }
+        // Full history for the month: pending = planned transfers, paid = completed.
+        // Amounts are not recomputed from expenses here — each row is a stored transfer.
+        $rows = $settlements->map(function (Settlement $s) {
+            return [
+                'id' => $s->id,
+                'from_user_id' => $s->from_user_id,
+                'to_user_id' => $s->to_user_id,
+                'from_name' => $s->from_name,
+                'to_name' => $s->to_name,
+                'amount' => round((float) $s->amount, 2),
+                'status' => $s->status,
+                'settled_at' => $s->settled_at,
+            ];
+        });
 
         return response()->json([
             'success' => true,
-            'settlements' => $pending,
+            'currency' => $house->currency ?? '$',
+            'settlements' => $rows,
         ]);
     }
 

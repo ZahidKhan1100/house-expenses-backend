@@ -13,6 +13,37 @@ use App\Services\SettlementEngine;
 
 class SettlementService
 {
+    /**
+     * Apply completed (paid) transfers for the month to net balances from expenses.
+     *
+     * Convention matches BalanceCalculator / PaymentController: positive = net creditor,
+     * negative = net debtor. A paid settlement from A → B moves money so A owes less and
+     * B is owed less.
+     */
+    public function applyPaidSettlementsToNetBalances(int $houseId, string $month, array $balance): array
+    {
+        $paid = Settlement::where('house_id', $houseId)
+            ->where('month', $month)
+            ->where('status', 'paid')
+            ->get();
+
+        foreach ($paid as $s) {
+            $from = (int) $s->from_user_id;
+            $to = (int) $s->to_user_id;
+            if (!array_key_exists($from, $balance)) {
+                $balance[$from] = 0;
+            }
+            if (!array_key_exists($to, $balance)) {
+                $balance[$to] = 0;
+            }
+            $amt = (float) $s->amount;
+            $balance[$from] += $amt;
+            $balance[$to] -= $amt;
+        }
+
+        return $balance;
+    }
+
     public function generate($houseId, $month)
     {
         $expense = Expense::where('house_id', $houseId)
@@ -43,12 +74,14 @@ class SettlementService
 
         $balances = $balanceCalculator->calculate($records, $mateIds);
 
+        $balances = $this->applyPaidSettlementsToNetBalances($houseId, $month, $balances);
+
         $transactions = $engine->optimize($balances);
 
-        // delete old settlements
+        // Replace pending suggestions only — paid settlements are historical truth and are never deleted here.
         Settlement::where('house_id', $houseId)
             ->where('month', $month)
-            ->where('status', 'pending') // only reset unpaid suggestions
+            ->where('status', 'pending')
             ->delete();
 
 
