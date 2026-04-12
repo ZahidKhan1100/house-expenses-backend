@@ -21,3 +21,7 @@ Route::get('/test-mail', function () {
         return '❌ Mail sending failed: ' . $e->getMessage();
     }
 });
+
+Route::get('/reset-password', function () {
+    return response()->view('reset-password');
+});
