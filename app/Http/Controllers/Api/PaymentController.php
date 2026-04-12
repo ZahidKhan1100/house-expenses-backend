@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Settlement;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -307,9 +308,9 @@ class PaymentController extends Controller
         // =========================
         // ✅ APPLY SETTLEMENTS (FIX 🔥)
         // =========================
-        $settlements = $house->settlements()
+        $settlements = Settlement::where('house_id', $house->id)
             ->where('status', 'paid')
-            ->get(); // ✅ NO MONTH FILTER (recommended)
+            ->get();
 
         foreach ($settlements as $settlement) {
             $from = $settlement->from_user_id; // debtor
