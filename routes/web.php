@@ -23,5 +23,5 @@ Route::get('/test-mail', function () {
 });
 
 Route::get('/reset-password', function () {
-    return response()->view('reset-password');
+    return view('auth.reset-password');
 });

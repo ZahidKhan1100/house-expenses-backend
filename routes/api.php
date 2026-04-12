@@ -33,77 +33,49 @@ Route::prefix('v1')->group(function () {
     Route::post('/resend-verification', [VerifyEmailController::class, 'resend']);
     Route::post('/check-email-verified', [AuthController::class, 'checkEmailVerified']);
     Route::get('/verify-email/{token}', [VerifyEmailController::class, 'verify'])
-    ->name('verify.email');
+        ->name('verify.email');
 
     Route::post('/social-login', [SocialLoginController::class, 'login']);
 
     // Password reset routes
 
-    Route::post('/forgot-password', function (Request $request) {
+    Route::post('/v1/forgot-password', function (Request $request) {
 
-        $request->validate([
-            'email' => 'required|email'
-        ]);
+        $request->validate(['email' => 'required|email']);
 
         $user = User::where('email', $request->email)->first();
 
         if (!$user) {
-            return response()->json([
-                'message' => 'User not found'
-            ], 404);
+            return response()->json(['message' => 'User not found'], 404);
         }
 
-        // ✅ Generate raw token
         $token = Str::random(64);
 
-        // ✅ Store HASHED token (secure)
         DB::table('password_reset_tokens')->updateOrInsert(
             ['email' => $user->email],
             [
                 'email' => $user->email,
                 'token' => hash('sha256', $token),
-                'created_at' => Carbon::now()
+                'created_at' => now()
             ]
         );
 
-        // ✅ Deep link
+        // 🔥 ALWAYS HTTPS web link
         $resetLink = "https://habimate.com/reset-password?token={$token}&email=" . urlencode($user->email);
 
-        $html = "
-        <!DOCTYPE html>
-        <html>
-        <body>
-            <h2>Reset Your Password</h2>
-            <p>Click below to reset your password:</p>
+        $html = view('emails.reset', compact('resetLink'))->render();
 
-            <a href='{$resetLink}' target='_blank'
-            style='display:inline-block;padding:12px 20px;background:#FF6A6A;color:#fff;
-                    border-radius:6px;text-decoration:none;font-weight:bold;'>
-            Reset Password
-            </a>
+        sendMailgunEmail($user->email, "Reset Password", $html);
 
-            <p>If you didn’t request this, ignore this email.</p>
-        </body>
-        </html>
-        ";
-
-        sendMailgunEmail(
-            $user->email,
-            'Reset Your Password',
-            $html
-        );
-
-        return response()->json([
-            'message' => 'Reset link sent successfully'
-        ]);
+        return response()->json(['message' => 'Reset link sent']);
     });
 
-    Route::post('/reset-password', function (Request $request) {
+    Route::post('/v1/reset-password', function (Request $request) {
 
         $request->validate([
             'email' => 'required|email',
             'token' => 'required',
-            'password' => 'required|min:6|confirmed',
+            'password' => 'required|min:6|confirmed'
         ]);
 
         $record = DB::table('password_reset_tokens')
@@ -114,35 +86,23 @@ Route::prefix('v1')->group(function () {
             return response()->json(['message' => 'Invalid request'], 400);
         }
 
-        // ✅ Verify token
         if (!hash_equals($record->token, hash('sha256', $request->token))) {
             return response()->json(['message' => 'Invalid token'], 400);
         }
 
-        // optional: check expiry (60 min)
-        if (Carbon::parse($record->created_at)->addMinutes(60)->isPast()) {
+        if (now()->diffInMinutes($record->created_at) > 60) {
             return response()->json(['message' => 'Token expired'], 400);
         }
 
         $user = User::where('email', $request->email)->first();
 
-        if (!$user) {
-            return response()->json(['message' => 'User not found'], 404);
-        }
-
-        // ✅ Update password
         $user->update([
-            'password' => bcrypt($request->password)
+            'password' => Hash::make($request->password)
         ]);
 
-        // ✅ Delete token after success
-        DB::table('password_reset_tokens')
-            ->where('email', $request->email)
-            ->delete();
+        DB::table('password_reset_tokens')->where('email', $request->email)->delete();
 
-        return response()->json([
-            'message' => 'Password reset successful'
-        ]);
+        return response()->json(['message' => 'Password reset successful']);
     });
 
     // Protected routes (require Sanctum token)
