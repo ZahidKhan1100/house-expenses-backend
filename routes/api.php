@@ -39,7 +39,7 @@ Route::prefix('v1')->group(function () {
 
     // Password reset routes
 
-    Route::post('/v1/forgot-password', function (Request $request) {
+    Route::post('/forgot-password', function (Request $request) {
 
         $request->validate(['email' => 'required|email']);
 
@@ -70,7 +70,7 @@ Route::prefix('v1')->group(function () {
         return response()->json(['message' => 'Reset link sent']);
     });
 
-    Route::post('/v1/reset-password', function (Request $request) {
+    Route::post('/reset-password', function (Request $request) {
 
         $request->validate([
             'email' => 'required|email',
