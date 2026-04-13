@@ -25,6 +25,7 @@ class DashboardController extends Controller
             'currency' => $dashboardData['currency'],
             'category_expenses' => $dashboardData['categories'],
             'mates' => $dashboardData['mates'],
+            'latest_bill' => $dashboardData['latest_bill'] ?? null,
         ]);
     }
 }

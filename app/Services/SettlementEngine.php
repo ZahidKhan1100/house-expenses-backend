@@ -2,8 +2,6 @@
 
 namespace App\Services;
 
-use Illuminate\Support\Collection;
-
 class SettlementEngine
 {
     /**
@@ -36,18 +34,35 @@ class SettlementEngine
             $credit = &$creditors[$j];
 
             $amount = min($debt['amount'], $credit['amount']);
+            $rounded = round($amount, 2);
+
+            if ($rounded < 0.01) {
+                $debt['amount'] -= $amount;
+                $credit['amount'] -= $amount;
+                if ($debt['amount'] < 0.005) {
+                    $i++;
+                }
+                if ($credit['amount'] < 0.005) {
+                    $j++;
+                }
+                continue;
+            }
 
             $transactions[] = [
                 'from_user_id' => $debt['id'],
                 'to_user_id' => $credit['id'],
-                'amount' => round($amount, 2),
+                'amount' => $rounded,
             ];
 
             $debt['amount'] -= $amount;
             $credit['amount'] -= $amount;
 
-            if ($debt['amount'] <= 0.01) $i++;
-            if ($credit['amount'] <= 0.01) $j++;
+            if ($debt['amount'] < 0.005) {
+                $i++;
+            }
+            if ($credit['amount'] < 0.005) {
+                $j++;
+            }
         }
 
         return $transactions;

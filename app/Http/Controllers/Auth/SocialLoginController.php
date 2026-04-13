@@ -5,9 +5,10 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\House;
+use Google\AccessToken\Verify;
+use GuzzleHttp\Client as GuzzleClient;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
-use Google_Client;
 use Firebase\JWT\JWT;
 use Firebase\JWT\JWK;
 
@@ -118,28 +119,39 @@ class SocialLoginController extends Controller
     }
 
     // ----------------- Google Token Verification -----------------
+    /**
+     * ID tokens are issued with `aud` = the OAuth client that started the sign-in flow
+     * (Android / iOS / Web / Expo are different client IDs). Google_Client::verifyIdToken
+     * only validates against one audience; we accept any configured client id.
+     */
     private function verifyGoogleToken($idToken)
     {
         try {
-            $client = new Google_Client();
-            $payload = $client->verifyIdToken($idToken, [
-                env('GOOGLE_CLIENT_ID'),
-                env('GOOGLE_IOS_CLIENT_ID'),
+            $verifier = new Verify(new GuzzleClient());
+
+            $audiences = array_unique(array_filter([
                 env('GOOGLE_ANDROID_CLIENT_ID'),
+                env('GOOGLE_IOS_CLIENT_ID'),
                 env('GOOGLE_WEB_CLIENT_ID'),
-            ]);
+                env('GOOGLE_EXPO_CLIENT_ID'),
+                env('GOOGLE_CLIENT_ID'),
+            ]));
 
-            if (!$payload)
-                return null;
-
-            return [
-                'email' => $payload['email'] ?? null,
-                'name' => $payload['name'] ?? 'Google User',
-                'provider_id' => $payload['sub'] ?? null,
-            ];
-        } catch (\Exception $e) {
-            return null;
+            foreach ($audiences as $audience) {
+                $payload = $verifier->verifyIdToken($idToken, $audience);
+                if (is_array($payload) && !empty($payload)) {
+                    return [
+                        'email' => $payload['email'] ?? null,
+                        'name' => $payload['name'] ?? 'Google User',
+                        'provider_id' => $payload['sub'] ?? null,
+                    ];
+                }
+            }
+        } catch (\Throwable $e) {
+            report($e);
         }
+
+        return null;
     }
 
     // ----------------- Apple Token Verification -----------------

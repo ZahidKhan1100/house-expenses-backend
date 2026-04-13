@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\BalanceCalculator;
+use App\Services\SettlementEngine;
 use App\Services\SettlementService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -60,7 +62,7 @@ class PaymentController extends Controller
             ->map(fn($name, $id) => ['id' => $id, 'name' => $name])
             ->values();
 
-        $mateIds = array_keys($matesMap);
+        $mateIds = array_map(static fn ($id) => (int) $id, array_keys($matesMap));
 
         // =========================
         // ✅ AVAILABLE MONTHS
@@ -102,83 +104,26 @@ class PaymentController extends Controller
         }
 
         // =========================
-        // ✅ BALANCE CALCULATION
+        // ✅ BALANCE FROM RECORDS (CENT-SAFE SPLITS) − PAID SETTLEMENTS
         // =========================
-        $balance = array_fill_keys($mateIds, 0);
+        $balance = app(BalanceCalculator::class)->calculate($records, $mateIds);
 
-        foreach ($records as $rec) {
-            $included = is_array($rec->included_mates) ? $rec->included_mates : [];
-
-            // ensure payer included
-            if (!collect($included)->firstWhere('id', $rec->paid_by)) {
-                $included[] = [
-                    'id' => $rec->paid_by,
-                    'name' => $rec->paid_by_name
-                ];
-            }
-
-            $count = count($included);
-            if ($count === 0)
-                continue;
-
-            $split = $rec->amount / $count;
-
-            foreach ($included as $mate) {
-                $id = $mate['id'];
-
-                if ($id == $rec->paid_by) {
-                    $balance[$id] += $rec->amount - $split;
-                } else {
-                    $balance[$id] -= $split;
-                }
-            }
-        }
-
-        // =========================
-        // ✅ SUBTRACT COMPLETED SETTLEMENTS (REAL PAYMENTS)
-        // =========================
         $balance = app(SettlementService::class)->applyPaidSettlementsToNetBalances(
             $house->id,
             $month,
             $balance,
         );
 
-        // =========================
-        // ✅ TRANSACTIONS (REMAINING NET AFTER PAID SETTLEMENTS)
-        // =========================
-        $creditors = [];
-        $debtors = [];
+        $rawTx = (new SettlementEngine())->optimize($balance);
 
-        foreach ($balance as $id => $amt) {
-            if ($amt > 0)
-                $creditors[] = ['id' => $id, 'amount' => $amt];
-            if ($amt < 0)
-                $debtors[] = ['id' => $id, 'amount' => -$amt];
-        }
-
-        $transactions = [];
-        $i = $j = 0;
-
-        while ($i < count($debtors) && $j < count($creditors)) {
-            $debtor = &$debtors[$i];
-            $creditor = &$creditors[$j];
-
-            $amt = min($debtor['amount'], $creditor['amount']);
-
-            $transactions[] = [
-                'from' => $debtor['id'],
-                'to' => $creditor['id'],
-                'amount' => round($amt, 2),
-            ];
-
-            $debtor['amount'] -= $amt;
-            $creditor['amount'] -= $amt;
-
-            if ($debtor['amount'] == 0)
-                $i++;
-            if ($creditor['amount'] == 0)
-                $j++;
-        }
+        $transactions = collect($rawTx)
+            ->map(fn (array $tx) => [
+                'from' => $tx['from_user_id'],
+                'to' => $tx['to_user_id'],
+                'amount' => $tx['amount'],
+            ])
+            ->values()
+            ->all();
 
         // Ensure names exist for anyone appearing only in settlement-adjusted flows
         $txUserIds = collect($transactions)

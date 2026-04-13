@@ -2,6 +2,7 @@
 
 namespace App\Actions\Expenses;
 
+use App\Models\Record;
 use App\Models\User;
 
 class GetDashboard
@@ -17,6 +18,7 @@ class GetDashboard
                 'categories' => [],
                 'mates' => [],
                 'month' => now()->format('Y-m'),
+                'latest_bill' => null,
             ];
         }
 
@@ -69,12 +71,36 @@ class GetDashboard
                 ];
             });
 
+        $latestBill = Record::query()
+            ->whereHas('expense', function ($q) use ($house) {
+                $q->where('house_id', $house->id);
+            })
+            ->with('category')
+            ->orderByDesc('timestamp')
+            ->orderByDesc('id')
+            ->first();
+
+        $latestPayload = null;
+        if ($latestBill) {
+            $latestPayload = [
+                'id' => $latestBill->id,
+                'description' => $latestBill->description,
+                'amount' => round((float) $latestBill->amount, 2),
+                'paid_by_name' => $latestBill->paid_by_name,
+                'category_name' => $latestBill->category?->name,
+                'timestamp' => $latestBill->timestamp
+                    ? $latestBill->timestamp->toIso8601String()
+                    : null,
+            ];
+        }
+
         return [
             'total_spent' => round($totalSpent, 2),
             'currency' => $house->currency ?? '$',
             'categories' => array_values($categories),
             'mates' => $mates,
             'month' => $month,
+            'latest_bill' => $latestPayload,
         ];
     }
 }

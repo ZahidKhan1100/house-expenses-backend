@@ -41,6 +41,11 @@ class SettlementService
             $balance[$to] -= $amt;
         }
 
+        foreach ($balance as $id => $v) {
+            $r = round((float) $v, 2);
+            $balance[$id] = abs($r) < 0.005 ? 0.0 : $r;
+        }
+
         return $balance;
     }
 

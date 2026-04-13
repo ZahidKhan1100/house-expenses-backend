@@ -10,7 +10,8 @@ class BalanceCalculator
 {
     public function calculate($records, array $mateIds): array
     {
-        $balance = array_fill_keys($mateIds, 0);
+        $mateIds = array_map(static fn ($id) => (int) $id, $mateIds);
+        $balance = array_fill_keys($mateIds, 0.0);
 
         foreach ($records as $rec) {
 
@@ -28,24 +29,33 @@ class BalanceCalculator
             }
 
             // filter only active mates
-            $included = array_filter($included, function ($m) use ($mateIds) {
-                return in_array($m['id'], $mateIds);
-            });
+            $included = array_values(array_filter($included, function ($m) use ($mateIds) {
+                return in_array((int) $m['id'], $mateIds, true);
+            }));
 
             $count = count($included);
-            if ($count === 0) continue;
+            if ($count === 0) {
+                continue;
+            }
 
-            $split = $rec->amount / $count;
+            $total = (float) $rec->amount;
+            $shares = ExpenseSplit::sharePerUser($total, $included);
 
             foreach ($included as $mate) {
-                $id = $mate['id'];
+                $id = (int) $mate['id'];
+                $split = $shares[$id] ?? 0.0;
 
-                if ($id == $rec->paid_by) {
-                    $balance[$id] += $rec->amount - $split;
+                if ($id === (int) $rec->paid_by) {
+                    $balance[$id] += $total - $split;
                 } else {
                     $balance[$id] -= $split;
                 }
             }
+        }
+
+        foreach ($balance as $id => $v) {
+            $r = round((float) $v, 2);
+            $balance[$id] = abs($r) < 0.005 ? 0.0 : $r;
         }
 
         return $balance;

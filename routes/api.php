@@ -7,9 +7,12 @@ use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\TripController;
 use App\Http\Controllers\Api\TripMemberController;
 use App\Http\Controllers\Api\UserController;
+use App\Http\Controllers\Api\PushTokenController;
+use App\Http\Controllers\Api\HouseWallController;
 use App\Http\Controllers\Auth\SocialLoginController;
 use App\Http\Controllers\Auth\VerifyEmailController;
 use App\Models\User;
+use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\HouseController;
@@ -108,7 +111,24 @@ Route::prefix('v1')->group(function () {
     // Protected routes (require Sanctum token)
     Route::middleware('auth:sanctum')->group(function () {
 
+        // Pusher private channel auth (available at /api/v1/broadcasting/auth)
+        Broadcast::routes();
+
         Route::post('/logout', [AuthController::class, 'logout']);
+
+        // Expo push tokens
+        Route::post('/push-tokens', [PushTokenController::class, 'store']);
+
+        // House Wall
+        Route::get('/house-wall', [HouseWallController::class, 'index']);
+        Route::post('/house-wall/snippets', [HouseWallController::class, 'createSnippet']);
+        Route::post('/house-wall/polls', [HouseWallController::class, 'createPoll']);
+        Route::post('/house-wall/polls/{post}/vote', [HouseWallController::class, 'vote']);
+        Route::post('/house-wall/{post}/heart', [HouseWallController::class, 'toggleHeart']);
+        Route::get('/house-wall/fridge-note', [HouseWallController::class, 'getFridgeNote']);
+        Route::put('/house-wall/fridge-note', [HouseWallController::class, 'setFridgeNote']);
+        Route::get('/house-wall/statuses', [HouseWallController::class, 'getStatuses']);
+        Route::put('/house-wall/status', [HouseWallController::class, 'setStatus']);
 
         // Houses
         Route::post('/houses/create', [HouseController::class, 'create']);

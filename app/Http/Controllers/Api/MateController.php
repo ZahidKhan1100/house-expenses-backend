@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\House;
 use App\Models\JoinRequest;
 use Illuminate\Http\Request;
 use App\Models\User;
@@ -125,18 +126,69 @@ class MateController extends Controller
         return response()->json(['message' => 'Mate updated', 'mate' => $mate]);
     }
 
-    // Delete mate
+    /**
+     * Admin removes another member from the house (same end state as leave-house for that user).
+     */
     public function destroy(Request $request, $id)
     {
-        $user = $request->user();
-        if ($user->role !== 'admin') {
+        $admin = $request->user();
+
+        if ($admin->role !== 'admin') {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
-        $mate = User::findOrFail($id);
-        $mate->status = 'deleted';
-        $mate->save();
+        if (!$admin->house_id) {
+            return response()->json(['message' => 'No house'], 400);
+        }
 
-        return response()->json(['message' => 'Mate deleted']);
+        if ((int) $id === (int) $admin->id) {
+            return response()->json([
+                'message' => 'Use Leave House in your profile to remove yourself.',
+            ], 400);
+        }
+
+        $mate = User::findOrFail($id);
+
+        if ((int) $mate->house_id !== (int) $admin->house_id) {
+            return response()->json(['message' => 'User is not in your house'], 403);
+        }
+
+        $house = House::findOrFail($admin->house_id);
+
+        return DB::transaction(function () use ($house, $mate) {
+
+            // If removing the house admin, promote someone else (same as leaveHouse)
+            if ($mate->role === 'admin' || (int) $house->admin_id === (int) $mate->id) {
+                $nextUser = User::where('house_id', $house->id)
+                    ->where('id', '!=', $mate->id)
+                    ->whereIn('status', ['approved', 'admin'])
+                    ->first();
+
+                if ($nextUser) {
+                    $house->update(['admin_id' => $nextUser->id]);
+                    $nextUser->update([
+                        'role' => 'admin',
+                        'status' => 'admin',
+                    ]);
+                } else {
+                    $house->update(['admin_id' => null]);
+                }
+            }
+
+            JoinRequest::where('user_id', $mate->id)
+                ->where('house_id', $house->id)
+                ->delete();
+
+            $mate->update([
+                'house_id' => null,
+                'role' => 'leave',
+                'status' => 'pending',
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'User removed from house',
+            ]);
+        });
     }
 }
