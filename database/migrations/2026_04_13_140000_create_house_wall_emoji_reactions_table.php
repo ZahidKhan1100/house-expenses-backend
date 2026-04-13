@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration {
     public function up(): void
     {
+        // House Wall Emoji Reactions
         Schema::create('house_wall_emoji_reactions', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('post_id')->index();
