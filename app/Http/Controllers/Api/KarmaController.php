@@ -11,7 +11,7 @@ class KarmaController extends Controller
 {
     public function log(Request $request)
     {
-        // Internal only: protect with a shared secret header.
+        // Internal only: protect with a shared secret header..
         $secret = env('KARMA_LOG_SECRET');
         $header = $request->header('X-Karma-Secret');
         if (!$secret || $header !== $secret) {
