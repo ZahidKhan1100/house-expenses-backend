@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Events\HouseWallHeartToggled;
+use App\Events\HouseWallEmojiReacted;
 use App\Events\HouseWallPollVoted;
 use App\Events\HouseWallPostCreated;
 use App\Http\Controllers\Controller;
@@ -10,11 +11,50 @@ use App\Models\HouseWallPollOption;
 use App\Models\HouseWallPollVote;
 use App\Models\HouseWallPost;
 use App\Models\HouseWallReaction;
+use App\Services\KarmaService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class HouseWallController extends Controller
 {
+    public function uploadSignature(Request $request)
+    {
+        $user = $request->user();
+        if (!$user->house_id) return response()->json(['message' => 'No house'], 400);
+
+        $cloudName = env('CLOUDINARY_CLOUD_NAME');
+        $apiKey = env('CLOUDINARY_API_KEY');
+        $apiSecret = env('CLOUDINARY_API_SECRET');
+
+        if (!$cloudName || !$apiKey || !$apiSecret) {
+            return response()->json([
+                'message' => 'Cloudinary not configured on backend',
+            ], 500);
+        }
+
+        $timestamp = time();
+        $folder = 'house_wall/' . (int) $user->house_id;
+
+        // Cloudinary signature: sha1(param1=value1&param2=value2...<api_secret>)
+        // Params must be sorted by key.
+        $params = [
+            'folder' => $folder,
+            'timestamp' => $timestamp,
+        ];
+        ksort($params);
+        $toSign = http_build_query($params, '', '&', PHP_QUERY_RFC3986);
+        $signature = sha1($toSign . $apiSecret);
+
+        return response()->json([
+            'success' => true,
+            'cloud_name' => $cloudName,
+            'api_key' => $apiKey,
+            'timestamp' => $timestamp,
+            'folder' => $folder,
+            'signature' => $signature,
+        ]);
+    }
+
     public function index(Request $request)
     {
         $user = $request->user();
@@ -60,7 +100,26 @@ class HouseWallController extends Controller
             ->where('user_id', $user->id)
             ->pluck('option_id', 'post_id');
 
-        $payload = $posts->map(function (HouseWallPost $p) use ($heartsCounts, $myHearts, $voteCounts, $myVotes) {
+        $emojiCounts = DB::table('house_wall_emoji_reactions')
+            ->selectRaw('post_id, emoji, COUNT(*) as c')
+            ->whereIn('post_id', $postIds)
+            ->groupBy('post_id', 'emoji')
+            ->get()
+            ->groupBy('post_id')
+            ->map(function ($rows) {
+                $out = [];
+                foreach ($rows as $r) $out[(string) $r->emoji] = (int) $r->c;
+                return $out;
+            });
+
+        $myEmojis = DB::table('house_wall_emoji_reactions')
+            ->whereIn('post_id', $postIds)
+            ->where('user_id', $user->id)
+            ->get(['post_id', 'emoji'])
+            ->groupBy('post_id')
+            ->map(fn ($rows) => $rows->pluck('emoji')->values()->all());
+
+        $payload = $posts->map(function (HouseWallPost $p) use ($heartsCounts, $myHearts, $voteCounts, $myVotes, $emojiCounts, $myEmojis) {
             return [
                 'id' => $p->id,
                 'type' => $p->type,
@@ -76,6 +135,8 @@ class HouseWallController extends Controller
                 'my_vote_option_id' => $myVotes[$p->id] ?? null,
                 'hearts_count' => (int) ($heartsCounts[$p->id] ?? 0),
                 'my_hearted' => isset($myHearts[$p->id]),
+                'emoji_counts' => $emojiCounts->get($p->id, []),
+                'my_emojis' => $myEmojis->get($p->id, []),
                 'user' => $p->user ? ['id' => $p->user->id, 'name' => $p->user->name] : null,
                 'created_at' => $p->created_at?->toISOString(),
                 'system_payload' => $p->system_payload,
@@ -103,6 +164,12 @@ class HouseWallController extends Controller
                 'caption' => $data['caption'] ?? null,
                 'image_url' => $data['image_url'],
             ])->load('user:id,name');
+
+            // Karma: Wall Contributor +10
+            try {
+                app(KarmaService::class)->add($user, 10, 'wall_contributor');
+            } catch (\Throwable $e) {
+            }
 
             $payload = [
                 'id' => $post->id,
@@ -156,6 +223,12 @@ class HouseWallController extends Controller
             }
 
             $post = $post->load('user:id,name');
+
+            // Karma: Wall Contributor +10
+            try {
+                app(KarmaService::class)->add($user, 10, 'wall_contributor');
+            } catch (\Throwable $e) {
+            }
 
             $payload = [
                 'id' => $post->id,
@@ -242,6 +315,93 @@ class HouseWallController extends Controller
         event(new HouseWallHeartToggled((int) $user->house_id, (int) $post->id, $count));
 
         return response()->json(['success' => true, 'hearted' => $hearted, 'hearts_count' => $count]);
+    }
+
+    public function toggleEmojiReaction(Request $request, HouseWallPost $post)
+    {
+        $user = $request->user();
+        if (!$user->house_id || (int) $post->house_id !== (int) $user->house_id) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $data = $request->validate([
+            'emoji' => ['required', 'string', 'max:16'],
+        ]);
+
+        // Allow only a safe, fun shortlist (prevents weird payloads)
+        $allowed = ['😂','🥲','🔥','🍕','🧻','🏠','🥳','🤦‍♂️','😴','☕️'];
+        if (!in_array($data['emoji'], $allowed, true)) {
+            return response()->json(['message' => 'Invalid emoji'], 422);
+        }
+
+        $exists = DB::table('house_wall_emoji_reactions')
+            ->where('post_id', $post->id)
+            ->where('user_id', $user->id)
+            ->where('emoji', $data['emoji'])
+            ->first();
+
+        $reacted = false;
+        if ($exists) {
+            DB::table('house_wall_emoji_reactions')
+                ->where('post_id', $post->id)
+                ->where('user_id', $user->id)
+                ->where('emoji', $data['emoji'])
+                ->delete();
+            $reacted = false;
+        } else {
+            DB::table('house_wall_emoji_reactions')->insert([
+                'post_id' => $post->id,
+                'user_id' => $user->id,
+                'emoji' => $data['emoji'],
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+            $reacted = true;
+        }
+
+        $counts = DB::table('house_wall_emoji_reactions')
+            ->selectRaw('emoji, COUNT(*) as c')
+            ->where('post_id', $post->id)
+            ->groupBy('emoji')
+            ->pluck('c', 'emoji')
+            ->map(fn ($c) => (int) $c)
+            ->all();
+
+        event(new HouseWallEmojiReacted((int) $user->house_id, (int) $post->id, $counts));
+
+        return response()->json([
+            'success' => true,
+            'reacted' => $reacted,
+            'emoji' => $data['emoji'],
+            'emoji_counts' => $counts,
+        ]);
+    }
+
+    public function destroy(Request $request, HouseWallPost $post)
+    {
+        $user = $request->user();
+        if (!$user->house_id || (int) $post->house_id !== (int) $user->house_id) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $isAdmin = ($user->role === 'admin');
+        $isOwner = ((int) ($post->user_id ?? 0) === (int) $user->id);
+
+        if (!$isAdmin && !$isOwner) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        return DB::transaction(function () use ($post) {
+            // Clean up children (no FK constraints in schema)
+            DB::table('house_wall_reactions')->where('post_id', $post->id)->delete();
+            DB::table('house_wall_emoji_reactions')->where('post_id', $post->id)->delete();
+            DB::table('house_wall_poll_votes')->where('post_id', $post->id)->delete();
+            DB::table('house_wall_poll_options')->where('post_id', $post->id)->delete();
+
+            $post->delete();
+
+            return response()->json(['success' => true]);
+        });
     }
 
     public function getFridgeNote(Request $request)

@@ -9,6 +9,8 @@ use App\Http\Controllers\Api\TripMemberController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\PushTokenController;
 use App\Http\Controllers\Api\HouseWallController;
+use App\Http\Controllers\Api\LeaderboardController;
+use App\Http\Controllers\Api\KarmaController;
 use App\Http\Controllers\Auth\SocialLoginController;
 use App\Http\Controllers\Auth\VerifyEmailController;
 use App\Models\User;
@@ -121,10 +123,13 @@ Route::prefix('v1')->group(function () {
 
         // House Wall
         Route::get('/house-wall', [HouseWallController::class, 'index']);
+        Route::post('/house-wall/upload-signature', [HouseWallController::class, 'uploadSignature']);
         Route::post('/house-wall/snippets', [HouseWallController::class, 'createSnippet']);
         Route::post('/house-wall/polls', [HouseWallController::class, 'createPoll']);
         Route::post('/house-wall/polls/{post}/vote', [HouseWallController::class, 'vote']);
         Route::post('/house-wall/{post}/heart', [HouseWallController::class, 'toggleHeart']);
+        Route::post('/house-wall/{post}/emoji', [HouseWallController::class, 'toggleEmojiReaction']);
+        Route::delete('/house-wall/{post}', [HouseWallController::class, 'destroy']);
         Route::get('/house-wall/fridge-note', [HouseWallController::class, 'getFridgeNote']);
         Route::put('/house-wall/fridge-note', [HouseWallController::class, 'setFridgeNote']);
         Route::get('/house-wall/statuses', [HouseWallController::class, 'getStatuses']);
@@ -160,6 +165,10 @@ Route::prefix('v1')->group(function () {
 
         // Dashboard
         Route::get('/dashboard', [DashboardController::class, 'index']);
+
+        // Gamification
+        Route::get('/leaderboard', [LeaderboardController::class, 'index']);
+        Route::post('/karma/log', [KarmaController::class, 'log']);
 
         Route::get('/mates', [MateController::class, 'index']);
         Route::post('/mates/{id}/approve', [MateController::class, 'approve']);

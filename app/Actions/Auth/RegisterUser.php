@@ -46,6 +46,12 @@ class RegisterUser
             ]);
         }
 
+        // Founder is permanent: first 10,000 users by id.
+        if ((int) $user->id <= 10000 && !$user->is_founder) {
+            $user->is_founder = true;
+            $user->save();
+        }
+
         // =====================================================
         // 📧 SEND VERIFICATION EMAIL
         // =====================================================
@@ -103,6 +109,12 @@ class RegisterUser
             'status' => 'admin',
             'active_mode' => 'house',
         ]);
+
+        // Karma: House Starter +100 (best-effort)
+        try {
+            app(\App\Services\KarmaService::class)->add($user, 100, 'house_starter');
+        } catch (\Throwable $e) {
+        }
 
         // Default categories
         foreach ([

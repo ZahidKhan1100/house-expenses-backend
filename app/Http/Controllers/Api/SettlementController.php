@@ -11,6 +11,7 @@ use App\Models\Settlement;
 use App\Events\SettlementPaid;
 use App\Models\User;
 use App\Services\ExpoPushService;
+use App\Services\KarmaService;
 use Illuminate\Support\Facades\Auth;
 
 class SettlementController extends Controller
@@ -73,6 +74,16 @@ class SettlementController extends Controller
             'status' => 'paid',
             'settled_at' => now(),
         ]);
+
+        // Karma: Instant Settler +50 if paid within 12 hours of row creation.
+        try {
+            $createdAt = $settlement->created_at ?? null;
+            if ($createdAt && now()->diffInHours($createdAt) <= 12) {
+                app(KarmaService::class)->add($user, 50, 'instant_settler');
+            }
+        } catch (\Throwable $e) {
+            // best-effort; settlement must still succeed
+        }
 
         // Notify only the receiver (to_user_id) in realtime and via push.
         $houseCurrency = $user->house?->currency ?? '$';

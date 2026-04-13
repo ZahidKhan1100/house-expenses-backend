@@ -33,13 +33,15 @@ class MateController extends Controller
             'id' => $admin->id,
             'name' => $admin->name,
             'email' => $admin->email,
+            'is_founder' => (bool) $admin->is_founder,
+            'karma_balance' => (int) ($admin->karma_balance ?? 0),
         ] : null;
 
         // Approved mates (excluding admin)
         $approved = $house->mates()
             ->where('role', 'mate')
             ->where('status', 'approved')
-            ->get(['id', 'name', 'email'])
+            ->get(['id', 'name', 'email', 'is_founder', 'karma_balance'])
             ->toArray();
 
         // Pending mates
@@ -51,6 +53,8 @@ class MateController extends Controller
                     'id' => $user->id,
                     'name' => $user->name,
                     'email' => $user->email,
+                    'is_founder' => (bool) $user->is_founder,
+                    'karma_balance' => (int) ($user->karma_balance ?? 0),
                 ];
             });
 
