@@ -112,45 +112,51 @@ class HouseController extends Controller
             return response()->json(['error' => 'House not found'], 404);
         }
 
-        // 🧠 If admin → transfer
-        if ($user->role === 'admin') {
+        return DB::transaction(function () use ($user, $house) {
+            // 🧠 If admin → transfer
+            if ($user->role === 'admin') {
 
-            $nextUser = User::where('house_id', $house->id)
-                ->where('id', '!=', $user->id)
-                ->whereIn('status', ['approved', 'admin'])
-                ->first();
+                $nextUser = User::where('house_id', $house->id)
+                    ->where('id', '!=', $user->id)
+                    ->whereIn('status', ['approved', 'admin'])
+                    ->first();
 
-            if ($nextUser) {
-                // ✅ Assign new admin
-                $house->update([
-                    'admin_id' => $nextUser->id
-                ]);
+                if ($nextUser) {
+                    // ✅ Assign new admin
+                    $house->update([
+                        'admin_id' => $nextUser->id
+                    ]);
 
-                $nextUser->update([
-                    'role' => 'admin',
-                    'status' => 'admin'
-                ]);
-            } else {
-                // No users left
-                $house->update([
-                    'admin_id' => null
-                ]);
-
-
+                    $nextUser->update([
+                        'role' => 'admin',
+                        'status' => 'admin'
+                    ]);
+                } else {
+                    // No users left
+                    $house->update([
+                        'admin_id' => null
+                    ]);
+                }
             }
-        }
 
-        // 🚪 Remove current user
-        $user->update([
-            'house_id' => null,
-            'role' => 'leave',
-            'status' => 'pending',
-        ]);
+            // 🚪 Remove current user
+            $user->update([
+                'house_id' => null,
+                'role' => 'leave',
+                'status' => 'pending',
+            ]);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Left house successfully'
-        ]);
+            // 🗑️ Delete house if it is now empty
+            $remainingMembers = User::where('house_id', $house->id)->count();
+            if ($remainingMembers === 0) {
+                $house->delete();
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Left house successfully'
+            ]);
+        });
     }
 
     public function deleteAccount()
@@ -194,6 +200,14 @@ class HouseController extends Controller
             // 🚪 Remove from house + mark deleted
             // -------------------------------
             $user->delete();
+
+            // 🗑️ Delete house if it is now empty
+            if ($house) {
+                $remainingMembers = User::where('house_id', $house->id)->count();
+                if ($remainingMembers === 0) {
+                    $house->delete();
+                }
+            }
 
             // -------------------------------
             // 🔐 Logout everywhere
