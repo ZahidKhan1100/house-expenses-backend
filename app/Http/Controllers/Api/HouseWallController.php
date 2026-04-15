@@ -662,15 +662,30 @@ class HouseWallController extends Controller
         $user = $request->user();
         if (!$user->house_id) return response()->json(['success' => true, 'statuses' => []]);
 
-        $rows = DB::table('house_member_statuses')
-            ->where('house_id', $user->house_id)
-            ->get();
+        // Return a row for each current mate, even if they never set a status yet.
+        $rows = DB::table('users')
+            ->leftJoin('house_member_statuses', function ($join) use ($user) {
+                $join->on('house_member_statuses.user_id', '=', 'users.id')
+                    ->where('house_member_statuses.house_id', '=', $user->house_id);
+            })
+            ->where('users.house_id', $user->house_id)
+            ->whereIn('users.status', ['approved', 'admin'])
+            ->orderBy('users.created_at')
+            ->get([
+                'users.id as user_id',
+                'users.name as name',
+                'users.role as role',
+                'house_member_statuses.status as status',
+                'house_member_statuses.updated_at as updated_at',
+            ]);
 
         return response()->json([
             'success' => true,
             'statuses' => $rows->map(fn ($r) => [
                 'user_id' => (int) $r->user_id,
-                'status' => $r->status,
+                'name' => (string) ($r->name ?? ''),
+                'role' => $r->role,
+                'status' => $r->status ?? null,
                 'updated_at' => $r->updated_at,
             ])->values(),
         ]);
@@ -686,9 +701,8 @@ class HouseWallController extends Controller
         ]);
 
         DB::table('house_member_statuses')->updateOrInsert(
-            ['user_id' => $user->id],
+            ['user_id' => $user->id, 'house_id' => $user->house_id],
             [
-                'house_id' => $user->house_id,
                 'status' => $data['status'],
                 'updated_at' => now(),
             ],
