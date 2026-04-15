@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\TripMemberController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\PushTokenController;
 use App\Http\Controllers\Api\HouseWallController;
+use App\Http\Controllers\Api\HouseWrappedController;
 use App\Http\Controllers\Api\LeaderboardController;
 use App\Http\Controllers\Api\KarmaController;
 use App\Http\Controllers\Auth\SocialLoginController;
@@ -134,6 +135,8 @@ Route::prefix('v1')->group(function () {
         Route::put('/house-wall/fridge-note', [HouseWallController::class, 'setFridgeNote']);
         Route::get('/house-wall/statuses', [HouseWallController::class, 'getStatuses']);
         Route::put('/house-wall/status', [HouseWallController::class, 'setStatus']);
+        Route::get('/house-wall/running-low', [HouseWallController::class, 'runningLowList']);
+        Route::post('/house-wall/running-low', [HouseWallController::class, 'runningLowPing']);
 
         // Houses
         Route::post('/houses/create', [HouseController::class, 'create']);
@@ -168,6 +171,7 @@ Route::prefix('v1')->group(function () {
 
         // Gamification
         Route::get('/leaderboard', [LeaderboardController::class, 'index']);
+        Route::get('/house-wrapped', [HouseWrappedController::class, 'index']);
         Route::post('/karma/log', [KarmaController::class, 'log']);
 
         Route::get('/mates', [MateController::class, 'index']);

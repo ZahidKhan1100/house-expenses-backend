@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class House extends Model
 {
-    protected $fillable = ['name', 'code', 'admin_id', 'currency'];
+    protected $fillable = ['name', 'code', 'admin_id', 'currency', 'leaderboard_top_user_id'];
 
     public function admin()
     {

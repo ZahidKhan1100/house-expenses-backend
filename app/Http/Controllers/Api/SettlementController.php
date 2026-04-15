@@ -11,6 +11,7 @@ use App\Models\Settlement;
 use App\Events\SettlementPaid;
 use App\Models\User;
 use App\Services\ExpoPushService;
+use App\Services\HouseWallGoalService;
 use App\Services\KarmaService;
 use Illuminate\Support\Facades\Auth;
 
@@ -111,6 +112,14 @@ class SettlementController extends Controller
                     'month' => $settlement->month,
                 ],
             );
+        }
+
+        try {
+            app(HouseWallGoalService::class)->maybePostHouseGoalAfterSettlement(
+                (int) $user->house_id,
+                (string) $settlement->month,
+            );
+        } catch (\Throwable $e) {
         }
 
         return response()->json([

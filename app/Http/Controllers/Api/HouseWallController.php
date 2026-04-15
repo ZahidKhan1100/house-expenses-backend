@@ -6,17 +6,201 @@ use App\Events\HouseWallHeartToggled;
 use App\Events\HouseWallEmojiReacted;
 use App\Events\HouseWallPollVoted;
 use App\Events\HouseWallPostCreated;
+use App\Events\HouseWallRunningLow;
 use App\Http\Controllers\Controller;
+use App\Models\HouseRunningLowRequest;
 use App\Models\HouseWallPollOption;
 use App\Models\HouseWallPollVote;
 use App\Models\HouseWallPost;
 use App\Models\HouseWallReaction;
+use App\Models\User;
+use App\Services\ExpoPushService;
 use App\Services\KarmaService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class HouseWallController extends Controller
 {
+    /**
+     * @return array<string, array{emoji: string, label: string}>
+     */
+    private function runningLowCatalog(): array
+    {
+        return [
+            'toilet_paper' => ['emoji' => '🧻', 'label' => 'Toilet paper'],
+            'milk' => ['emoji' => '🥛', 'label' => 'Milk'],
+            'cooking_oil' => ['emoji' => '🫒', 'label' => 'Cooking oil'],
+        ];
+    }
+
+    private function normalizeRunningLowLabel(string $s): string
+    {
+        $s = trim(preg_replace('/\s+/u', ' ', $s));
+
+        return mb_strtolower($s);
+    }
+
+    private function customRunningLowItemKey(string $normalizedLabel): string
+    {
+        return 'c_' . substr(sha1($normalizedLabel), 0, 12);
+    }
+
+    private function runningLowEmojiForRequest(HouseRunningLowRequest $r, array $cat): string
+    {
+        if (isset($cat[$r->item_key])) {
+            return $cat[$r->item_key]['emoji'];
+        }
+        if (str_starts_with($r->item_key, 'c_')) {
+            return '🛒';
+        }
+
+        return '📦';
+    }
+
+    public function runningLowList(Request $request)
+    {
+        $user = $request->user();
+        if (!$user->house_id) {
+            return response()->json(['success' => true, 'items' => [], 'open' => []]);
+        }
+
+        $cat = $this->runningLowCatalog();
+        $items = [];
+        foreach ($cat as $key => $meta) {
+            $items[] = [
+                'item_key' => $key,
+                'emoji' => $meta['emoji'],
+                'label' => $meta['label'],
+            ];
+        }
+
+        $open = HouseRunningLowRequest::query()
+            ->where('house_id', $user->house_id)
+            ->where('status', 'open')
+            ->orderByDesc('id')
+            ->get();
+
+        $openPayload = $open->map(function (HouseRunningLowRequest $r) use ($cat) {
+            $creator = User::query()->find($r->created_by);
+            $label = $r->display_label !== ''
+                ? $r->display_label
+                : (($cat[$r->item_key]['label'] ?? null) ?: (string) $r->item_key);
+
+            return [
+                'id' => $r->id,
+                'item_key' => $r->item_key,
+                'emoji' => $this->runningLowEmojiForRequest($r, $cat),
+                'label' => $label,
+                'created_by_name' => $creator?->name ?? 'Someone',
+            ];
+        })->values()->all();
+
+        return response()->json([
+            'success' => true,
+            'items' => $items,
+            'open' => $openPayload,
+        ]);
+    }
+
+    public function runningLowPing(Request $request)
+    {
+        $user = $request->user();
+        if (!$user->house_id) {
+            return response()->json(['message' => 'No house'], 400);
+        }
+
+        $data = $request->validate([
+            'item_key' => ['nullable', 'string', 'max:40'],
+            'custom_label' => ['nullable', 'string', 'max:48'],
+        ]);
+
+        $cat = $this->runningLowCatalog();
+        $presetKey = isset($data['item_key']) ? trim((string) $data['item_key']) : '';
+        $customRaw = isset($data['custom_label']) ? trim((string) $data['custom_label']) : '';
+
+        if ($presetKey !== '' && $customRaw !== '') {
+            return response()->json(['message' => 'Send either item_key or custom_label, not both'], 422);
+        }
+
+        if ($presetKey === '' && $customRaw === '') {
+            return response()->json(['message' => 'Choose a quick item or enter a custom label'], 422);
+        }
+
+        if ($customRaw !== '') {
+            $normalized = $this->normalizeRunningLowLabel($customRaw);
+            if (mb_strlen($normalized) < 2) {
+                return response()->json(['message' => 'Custom label must be at least 2 characters'], 422);
+            }
+            $itemKey = $this->customRunningLowItemKey($normalized);
+            $displayLabel = mb_substr($customRaw, 0, 48);
+            $emoji = '🛒';
+            $label = $displayLabel;
+        } elseif (isset($cat[$presetKey])) {
+            $itemKey = $presetKey;
+            $displayLabel = $cat[$presetKey]['label'];
+            $emoji = $cat[$presetKey]['emoji'];
+            $label = $displayLabel;
+        } else {
+            return response()->json(['message' => 'Unknown quick item'], 422);
+        }
+
+        return DB::transaction(function () use ($user, $itemKey, $displayLabel, $emoji, $label) {
+            $existing = HouseRunningLowRequest::query()
+                ->where('house_id', $user->house_id)
+                ->where('item_key', $itemKey)
+                ->where('status', 'open')
+                ->lockForUpdate()
+                ->first();
+
+            if ($existing) {
+                $req = $existing;
+            } else {
+                $req = HouseRunningLowRequest::create([
+                    'house_id' => $user->house_id,
+                    'item_key' => $itemKey,
+                    'display_label' => $displayLabel,
+                    'status' => 'open',
+                    'created_by' => $user->id,
+                ]);
+            }
+
+            $payload = [
+                'id' => $req->id,
+                'item_key' => $req->item_key,
+                'emoji' => $emoji,
+                'label' => $label,
+                'created_by' => ['id' => (int) $user->id, 'name' => (string) $user->name],
+            ];
+
+            DB::afterCommit(function () use ($user, $payload, $label) {
+                event(new HouseWallRunningLow((int) $user->house_id, $payload));
+
+                $push = app(ExpoPushService::class);
+                $mates = User::query()
+                    ->where('house_id', $user->house_id)
+                    ->get(['id', 'expo_push_token']);
+
+                foreach ($mates as $mate) {
+                    if ((int) $mate->id === (int) $user->id) {
+                        continue;
+                    }
+                    $token = $mate->expo_push_token ?? '';
+                    if ($token === '') {
+                        continue;
+                    }
+                    $push->send(
+                        $token,
+                        'Running low',
+                        'House is low on ' . $label . '! — ' . $user->name,
+                        ['type' => 'house.running_low', 'requestId' => $payload['id']],
+                    );
+                }
+            });
+
+            return response()->json(['success' => true, 'request' => $payload]);
+        });
+    }
+
     public function uploadSignature(Request $request)
     {
         $user = $request->user();
@@ -33,7 +217,7 @@ class HouseWallController extends Controller
         }
 
         $timestamp = time();
-        $folder = 'house_wall/' . (int) $user->house_id;
+        $folder = 'habimate/images/' . (int) $user->house_id;
 
         // Cloudinary signature: sha1(param1=value1&param2=value2...<api_secret>)
         // Params must be sorted by key.
@@ -154,20 +338,44 @@ class HouseWallController extends Controller
         $data = $request->validate([
             'caption' => ['nullable', 'string', 'max:100'],
             'image_url' => ['required', 'string', 'max:2048'],
+            'image_public_id' => ['nullable', 'string', 'max:255'],
+            'running_low_request_id' => ['nullable', 'integer'],
         ]);
 
         return DB::transaction(function () use ($user, $data) {
+            $lowReq = null;
+            if (!empty($data['running_low_request_id'])) {
+                $lowReq = HouseRunningLowRequest::query()
+                    ->where('id', $data['running_low_request_id'])
+                    ->where('house_id', $user->house_id)
+                    ->where('status', 'open')
+                    ->lockForUpdate()
+                    ->first();
+            }
+
             $post = HouseWallPost::create([
                 'house_id' => $user->house_id,
                 'user_id' => $user->id,
                 'type' => 'snippet',
                 'caption' => $data['caption'] ?? null,
                 'image_url' => $data['image_url'],
+                'image_public_id' => $data['image_public_id'] ?? null,
             ])->load('user:id,name');
 
-            // Karma: Wall Contributor +10
+            $karmaPts = 10;
+            $karmaReason = 'wall_contributor';
+            if ($lowReq) {
+                $lowReq->update([
+                    'status' => 'fulfilled',
+                    'fulfilled_by' => $user->id,
+                    'fulfilled_post_id' => $post->id,
+                ]);
+                $karmaPts = 20;
+                $karmaReason = 'grocery_hero';
+            }
+
             try {
-                app(KarmaService::class)->add($user, 10, 'wall_contributor');
+                app(KarmaService::class)->add($user, $karmaPts, $karmaReason);
             } catch (\Throwable $e) {
             }
 
@@ -182,6 +390,8 @@ class HouseWallController extends Controller
                 'my_vote_option_id' => null,
                 'hearts_count' => 0,
                 'my_hearted' => false,
+                'emoji_counts' => [],
+                'my_emojis' => [],
                 'user' => ['id' => $post->user->id, 'name' => $post->user->name],
                 'created_at' => $post->created_at?->toISOString(),
                 'system_payload' => null,
@@ -189,7 +399,12 @@ class HouseWallController extends Controller
 
             DB::afterCommit(fn () => event(new HouseWallPostCreated((int) $user->house_id, $post, $payload)));
 
-            return response()->json(['success' => true, 'post' => $payload], 201);
+            return response()->json([
+                'success' => true,
+                'post' => $payload,
+                'karma_points' => $karmaPts,
+                'karma_reason' => $karmaReason,
+            ], 201);
         });
     }
 

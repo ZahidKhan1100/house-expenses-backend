@@ -27,6 +27,13 @@ class MateController extends Controller
             ]);
         }
 
+        $topLegendId = User::query()
+            ->where('house_id', $house->id)
+            ->whereIn('status', ['approved', 'admin'])
+            ->orderByDesc('karma_balance')
+            ->orderBy('created_at')
+            ->value('id');
+
         // Admin object
         $admin = $house->mates()->where('role', 'admin')->first();
         $adminData = $admin ? [
@@ -35,6 +42,7 @@ class MateController extends Controller
             'email' => $admin->email,
             'is_founder' => (bool) $admin->is_founder,
             'karma_balance' => (int) ($admin->karma_balance ?? 0),
+            'is_house_legend' => $topLegendId !== null && (int) $admin->id === (int) $topLegendId,
         ] : null;
 
         // Approved mates (excluding admin)
@@ -42,12 +50,23 @@ class MateController extends Controller
             ->where('role', 'mate')
             ->where('status', 'approved')
             ->get(['id', 'name', 'email', 'is_founder', 'karma_balance'])
-            ->toArray();
+            ->map(function ($m) use ($topLegendId) {
+                return [
+                    'id' => $m->id,
+                    'name' => $m->name,
+                    'email' => $m->email,
+                    'is_founder' => (bool) $m->is_founder,
+                    'karma_balance' => (int) ($m->karma_balance ?? 0),
+                    'is_house_legend' => $topLegendId !== null && (int) $m->id === (int) $topLegendId,
+                ];
+            })
+            ->values()
+            ->all();
 
         // Pending mates
         $pending = $house->joinRequests()
             ->get()
-            ->map(function ($req) {
+            ->map(function ($req) use ($topLegendId) {
                 $user = $req->user; // assuming joinRequest has user relation
                 return [
                     'id' => $user->id,
@@ -55,6 +74,7 @@ class MateController extends Controller
                     'email' => $user->email,
                     'is_founder' => (bool) $user->is_founder,
                     'karma_balance' => (int) ($user->karma_balance ?? 0),
+                    'is_house_legend' => $topLegendId !== null && (int) $user->id === (int) $topLegendId,
                 ];
             });
 
@@ -70,6 +90,7 @@ class MateController extends Controller
             'approved' => $approved,
             'pending' => $pending,
             'house' => $houseData,
+            'house_legend_user_id' => $topLegendId ? (int) $topLegendId : null,
         ]);
     }
 

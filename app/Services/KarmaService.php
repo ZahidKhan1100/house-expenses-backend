@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Events\KarmaUpdated;
+use App\Models\KarmaLedger;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 
@@ -26,6 +27,19 @@ class KarmaService
         $after = (int) ($updated->karma_balance ?? 0);
         $delta = $after - $before;
 
+        if ($delta !== 0 && $user->house_id) {
+            try {
+                KarmaLedger::create([
+                    'user_id' => $user->id,
+                    'house_id' => (int) $user->house_id,
+                    'points' => $delta,
+                    'reason' => $reason,
+                    'created_at' => now(),
+                ]);
+            } catch (\Throwable $e) {
+            }
+        }
+
         // Realtime: tell the user instantly (best-effort)
         try {
             event(new KarmaUpdated(
@@ -35,6 +49,11 @@ class KarmaService
                 level: $this->levelFor($after),
                 reason: (string) $reason,
             ));
+        } catch (\Throwable $e) {
+        }
+
+        try {
+            app(LeaderboardLeaderNotifier::class)->syncAfterKarmaChange($updated);
         } catch (\Throwable $e) {
         }
 

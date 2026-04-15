@@ -14,6 +14,7 @@ class HouseWallPost extends Model
         'type',
         'caption',
         'image_url',
+        'image_public_id',
         'poll_question',
         'system_payload',
     ];

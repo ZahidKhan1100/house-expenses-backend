@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Firebase\JWT\JWT;
 use Firebase\JWT\JWK;
+use App\Services\KarmaService;
 
 class SocialLoginController extends Controller
 {
@@ -64,6 +65,15 @@ class SocialLoginController extends Controller
                 'status' => 'approved',
                 'active_mode' => 'house',
             ]);
+
+            // Founder is permanent: first 10,000 users by id.
+            try {
+                if ((int) $user->id <= 10000 && !$user->is_founder) {
+                    $user->is_founder = true;
+                    $user->save();
+                }
+            } catch (\Throwable $e) {
+            }
         }
 
         // ----------------- Handle House -----------------
@@ -96,6 +106,12 @@ class SocialLoginController extends Controller
                     'status' => 'admin',
                     'active_mode' => 'house',
                 ]);
+
+                // Karma: House Starter +100 (best-effort)
+                try {
+                    app(KarmaService::class)->add($user, 100, 'house_starter');
+                } catch (\Throwable $e) {
+                }
 
                 foreach ([
                     ['name' => 'Grocery', 'icon' => 'shopping-basket'],

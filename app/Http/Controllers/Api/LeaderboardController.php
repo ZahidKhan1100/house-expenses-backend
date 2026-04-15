@@ -36,8 +36,11 @@ class LeaderboardController extends Controller
             ];
         })->values();
 
+        $houseLegendId = $users->isNotEmpty() ? (int) $users->first()['id'] : null;
+
         return response()->json([
             'success' => true,
+            'house_legend_user_id' => $houseLegendId,
             'users' => $users,
         ]);
     }
