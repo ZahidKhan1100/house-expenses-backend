@@ -3,27 +3,74 @@
 namespace App\Services;
 
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class ExpoPushService
 {
     /**
+     * Send via Expo Push API. Must match the channel created in the app:
+     * Notifications.setNotificationChannelAsync("default", ...).
+     *
      * @param  array<string, mixed>  $data
      */
     public function send(string $expoToken, string $title, string $body, array $data = []): void
     {
-        // Expo tokens look like: ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]
         if (trim($expoToken) === '') {
             return;
         }
 
-        Http::timeout(6)->post('https://exp.host/--/api/v2/push/send', [
+        $message = [
             'to' => $expoToken,
             'title' => $title,
             'body' => $body,
             'data' => $data,
             'sound' => 'default',
             'priority' => 'high',
-        ]);
+            // Android 8+: must match an existing channel id from the client, or notification may not show.
+            'channelId' => 'default',
+        ];
+
+        try {
+            $response = Http::timeout(15)
+                ->withHeaders([
+                    'Accept' => 'application/json',
+                    'Content-Type' => 'application/json',
+                ])
+                ->post('https://exp.host/--/api/v2/push/send', $message);
+
+            if (! $response->successful()) {
+                Log::warning('Expo push HTTP error', [
+                    'status' => $response->status(),
+                    'body' => $response->body(),
+                ]);
+
+                return;
+            }
+
+            $json = $response->json();
+            $tickets = $json['data'] ?? null;
+
+            if (! is_array($tickets)) {
+                return;
+            }
+
+            // Single-message request returns one ticket object; batch returns array of tickets.
+            $ticketList = isset($tickets['status']) ? [$tickets] : $tickets;
+
+            foreach ($ticketList as $ticket) {
+                if (($ticket['status'] ?? '') === 'error') {
+                    Log::warning('Expo push ticket error', [
+                        'message' => $ticket['message'] ?? null,
+                        'details' => $ticket['details'] ?? null,
+                    ]);
+                }
+            }
+
+            if (! empty($json['errors'])) {
+                Log::warning('Expo push request errors', ['errors' => $json['errors']]);
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Expo push exception: '.$e->getMessage());
+        }
     }
 }
-

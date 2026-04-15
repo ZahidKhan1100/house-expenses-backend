@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Models\House;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class RegisterUser
 {
@@ -73,7 +74,12 @@ class RegisterUser
 
         if (!empty($houseCode)) {
 
-            $house = House::where('code', strtoupper($houseCode))->firstOrFail();
+            $house = House::where('code', strtoupper($houseCode))->first();
+            if (!$house) {
+                throw ValidationException::withMessages([
+                    'house_code' => ['That house code isn’t valid. Double-check it or scan the QR again.'],
+                ]);
+            }
 
             $user->update([
                 'house_id' => $house->id,

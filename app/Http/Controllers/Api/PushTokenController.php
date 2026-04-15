@@ -12,7 +12,8 @@ class PushTokenController extends Controller
         $user = $request->user();
 
         $validated = $request->validate([
-            'token' => ['required', 'string', 'max:255'],
+            // Expo tokens can exceed 255 chars in some cases
+            'token' => ['required', 'string', 'max:512'],
         ]);
 
         $user->expo_push_token = $validated['token'];

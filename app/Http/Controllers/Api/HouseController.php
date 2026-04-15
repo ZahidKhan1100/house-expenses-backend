@@ -106,51 +106,49 @@ class HouseController extends Controller
             return response()->json(['error' => 'Not in any house'], 400);
         }
 
-        $house = $user->house;
+        return DB::transaction(function () use ($user) {
+            $house = $user->house;
 
-        if (!$house) {
-            return response()->json(['error' => 'House not found'], 404);
-        }
+            if (!$house) {
+                return response()->json(['error' => 'House not found'], 404);
+            }
 
-        // 🧠 If admin → transfer
-        if ($user->role === 'admin') {
-
+            // Find the oldest remaining approved/admin mate (excluding current user)
             $nextUser = User::where('house_id', $house->id)
                 ->where('id', '!=', $user->id)
                 ->whereIn('status', ['approved', 'admin'])
+                ->orderBy('created_at')
                 ->first();
 
-            if ($nextUser) {
-                // ✅ Assign new admin
-                $house->update([
-                    'admin_id' => $nextUser->id
-                ]);
+            // 🚪 Remove current user from house first (important: users.house_id has cascadeOnDelete)
+            $user->update([
+                'house_id' => null,
+                'role' => 'mate',
+                'status' => 'pending',
+            ]);
 
-                $nextUser->update([
-                    'role' => 'admin',
-                    'status' => 'admin'
-                ]);
+            // If current user was admin, transfer admin to the oldest remaining mate
+            if ($house->admin_id === $user->id) {
+                if ($nextUser) {
+                    $house->update(['admin_id' => $nextUser->id]);
+                    $nextUser->update(['role' => 'admin', 'status' => 'admin']);
+                } else {
+                    // No mates left -> delete the house
+                    $house->delete();
+                }
             } else {
-                // No users left
-                $house->update([
-                    'admin_id' => null
-                ]);
-
-
+                // Non-admin leaving: if no one remains at all, delete the house
+                $remainingCount = User::where('house_id', $house->id)->count();
+                if ($remainingCount === 0) {
+                    $house->delete();
+                }
             }
-        }
 
-        // 🚪 Remove current user
-        $user->update([
-            'house_id' => null,
-            'role' => 'leave',
-            'status' => 'pending',
-        ]);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Left house successfully'
-        ]);
+            return response()->json([
+                'success' => true,
+                'message' => 'Left house successfully',
+            ]);
+        });
     }
 
     public function deleteAccount()
@@ -164,7 +162,7 @@ class HouseController extends Controller
             // -------------------------------
             // 🧠 Handle admin transfer
             // -------------------------------
-            if ($house && $user->role === 'admin') {
+            if ($house && $house->admin_id === $user->id) {
 
                 $nextUser = User::where('house_id', $house->id)
                     ->where('id', '!=', $user->id)
@@ -173,26 +171,25 @@ class HouseController extends Controller
                     ->first();
 
                 if ($nextUser) {
-                    // ✅ Transfer admin
-                    $house->update([
-                        'admin_id' => $nextUser->id
-                    ]);
-
-                    $nextUser->update([
-                        'role' => 'admin',
-                        'status' => 'admin'
-                    ]);
+                    // ✅ Transfer admin to oldest mate
+                    $house->update(['admin_id' => $nextUser->id]);
+                    $nextUser->update(['role' => 'admin', 'status' => 'admin']);
                 } else {
-                    // ✅ No users left → keep house but remove admin
-                    $house->update([
-                        'admin_id' => null
-                    ]);
+                    // ✅ No users left -> delete the house
+                    // (we must null house_id on the user before deleting to avoid cascade deleting the user unexpectedly)
+                    $user->update(['house_id' => null]);
+                    $house->delete();
+                    $house = null;
                 }
             }
 
             // -------------------------------
             // 🚪 Remove from house + mark deleted
             // -------------------------------
+            if ($house && $user->house_id) {
+                // ensure user is not tied to house (avoid cascade surprises)
+                $user->update(['house_id' => null]);
+            }
             $user->delete();
 
             // -------------------------------
