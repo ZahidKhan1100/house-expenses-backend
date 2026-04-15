@@ -20,6 +20,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\HouseController;
 use App\Http\Controllers\Api\ExpenseController;
+use App\Http\Controllers\Api\ReceiptScanController;
 use App\Http\Controllers\Api\RecordController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\CategoryController;
@@ -156,6 +157,9 @@ Route::prefix('v1')->group(function () {
         Route::post('/records', [RecordController::class, 'store']);      // create
         Route::put('/records/{record}', [RecordController::class, 'update']); // update
         Route::delete('/records/{record}', [RecordController::class, 'destroy']);
+
+        // Receipt quick-scan (Gemini OCR/extraction)
+        Route::post('/receipts/extract', [ReceiptScanController::class, 'extract']);
 
         Route::get('/profile', [UserController::class, 'profile']);
         Route::get('/users/search', [UserController::class, 'search']);
