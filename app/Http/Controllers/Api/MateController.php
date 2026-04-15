@@ -210,6 +210,12 @@ class MateController extends Controller
                 'status' => 'pending',
             ]);
 
+            // 🗑️ Delete house if it is now empty
+            $remainingMembers = User::where('house_id', $house->id)->count();
+            if ($remainingMembers === 0) {
+                $house->delete();
+            }
+
             return response()->json([
                 'success' => true,
                 'message' => 'User removed from house',
