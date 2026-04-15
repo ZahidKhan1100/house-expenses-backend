@@ -226,7 +226,8 @@ class HouseWallController extends Controller
             'timestamp' => $timestamp,
         ];
         ksort($params);
-        $toSign = http_build_query($params, '', '&', PHP_QUERY_RFC3986);
+        // $toSign = http_build_query($params, '', '&', PHP_QUERY_RFC3986);
+        $toSign = urldecode(http_build_query($params));
         $signature = sha1($toSign . $apiSecret);
 
         return response()->json([
