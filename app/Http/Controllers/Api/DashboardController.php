@@ -11,6 +11,7 @@ class DashboardController extends Controller
     public function index(Request $request, GetDashboard $action)
     {
         $dashboardData = $action->handle($request->user());
+        $house = $request->user()->house;
 
         return response()->json([
             'user' => [
@@ -21,6 +22,10 @@ class DashboardController extends Controller
                 'role' => $request->user()->role,
                 'status' => $request->user()->status,
             ],
+            'house' => $house ? [
+                'id' => $house->id,
+                'name' => $house->name,
+            ] : null,
             'total_spent' => $dashboardData['total_spent'],
             'currency' => $dashboardData['currency'],
             'category_expenses' => $dashboardData['categories'],
