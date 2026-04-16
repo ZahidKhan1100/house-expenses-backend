@@ -5,6 +5,7 @@ namespace App\Actions\Expenses;
 use App\Models\Record;
 use App\Models\User;
 use App\Models\Expense;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class UpdateRecord
@@ -47,6 +48,22 @@ class UpdateRecord
                 ? User::find($data['paid_by'])
                 : null;
 
+            $splitMethod = $data['split_method'] ?? ($record->split_method ?? 'equal');
+            $excludedByUser = is_array($data['excluded_days_by_user'] ?? null)
+                ? $data['excluded_days_by_user']
+                : null;
+
+            $billPeriodDays = $record->bill_period_days;
+            if ($splitMethod === 'days') {
+                try {
+                    $billPeriodDays = Carbon::createFromFormat('Y-m', $month)->daysInMonth;
+                } catch (\Throwable) {
+                    // keep existing
+                }
+            } else {
+                $billPeriodDays = null;
+            }
+
             // ✅ 5. Update record (same structure as AddRecord)
             $record->update([
                 'expense_id' => $expense->id,
@@ -65,9 +82,41 @@ class UpdateRecord
                     ?? $record->paid_by_name
                     ?? 'Unknown',
 
+                'split_method' => $splitMethod,
+                'bill_period_days' => $billPeriodDays,
+
                 // ⚠️ Keep or update depending on your design
                 'timestamp' => now(),
             ]);
+
+            // Upsert excluded days only when provided in request.
+            if (is_array($excludedByUser)) {
+                try {
+                    $rows = [];
+                    foreach ($includedMates as $mate) {
+                        $uid = (int) ($mate['id'] ?? 0);
+                        if (!$uid) continue;
+                        $ex = (int) ($excludedByUser[$uid] ?? $excludedByUser[(string) $uid] ?? 0);
+                        if ($ex < 0) $ex = 0;
+                        $rows[] = [
+                            'record_id' => (int) $record->id,
+                            'user_id' => $uid,
+                            'excluded_days' => $ex,
+                            'created_at' => now(),
+                            'updated_at' => now(),
+                        ];
+                    }
+                    if (!empty($rows)) {
+                        DB::table('record_user')->upsert(
+                            $rows,
+                            ['record_id', 'user_id'],
+                            ['excluded_days', 'updated_at']
+                        );
+                    }
+                } catch (\Throwable) {
+                    // ignore
+                }
+            }
 
             return $record->load('category');
         });

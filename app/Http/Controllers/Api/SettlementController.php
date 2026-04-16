@@ -14,6 +14,7 @@ use App\Services\ExpoPushService;
 use App\Services\HouseWallGoalService;
 use App\Services\KarmaService;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 
 class SettlementController extends Controller
 {
@@ -102,6 +103,12 @@ class SettlementController extends Controller
 
         $receiver = User::find($settlement->to_user_id);
         if ($receiver?->expo_push_token) {
+            Log::info('Sending push', [
+                'type' => 'settlement.paid',
+                'to_user_id' => (int) $receiver->id,
+                'house_id' => (int) $user->house_id,
+                'settlement_id' => (int) $settlement->id,
+            ]);
             app(ExpoPushService::class)->send(
                 expoToken: $receiver->expo_push_token,
                 title: 'Settlement received',
@@ -112,6 +119,13 @@ class SettlementController extends Controller
                     'month' => $settlement->month,
                 ],
             );
+        } else {
+            Log::info('Push skipped (no expo token)', [
+                'type' => 'settlement.paid',
+                'to_user_id' => (int) ($settlement->to_user_id ?? 0),
+                'house_id' => (int) $user->house_id,
+                'settlement_id' => (int) $settlement->id,
+            ]);
         }
 
         try {

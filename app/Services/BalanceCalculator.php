@@ -39,7 +39,20 @@ class BalanceCalculator
             }
 
             $total = (float) $rec->amount;
-            $shares = ExpenseSplit::sharePerUser($total, $included);
+            if (($rec->split_method ?? 'equal') === 'days') {
+                $excluded = is_array($rec->excluded_days_by_user ?? null) ? $rec->excluded_days_by_user : [];
+                $billDays = (int) ($rec->bill_period_days ?? 0);
+                $weighted = array_map(static function ($m) use ($excluded, $billDays) {
+                    $id = (int) ($m['id'] ?? 0);
+                    $ex = (int) ($excluded[$id] ?? 0);
+                    if ($ex < 0) $ex = 0;
+                    $eff = max(0, $billDays - $ex);
+                    return ['id' => $id, 'weight' => $eff];
+                }, $included);
+                $shares = ExpenseSplit::sharePerUserWeighted($total, $weighted);
+            } else {
+                $shares = ExpenseSplit::sharePerUser($total, $included);
+            }
 
             foreach ($included as $mate) {
                 $id = (int) $mate['id'];

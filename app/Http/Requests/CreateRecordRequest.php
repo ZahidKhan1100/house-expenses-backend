@@ -21,6 +21,9 @@ class CreateRecordRequest extends FormRequest
             'included_mates.*' => 'exists:users,id',
             'paid_by' => 'required|exists:users,id',
             'month' => 'nullable|string',
+            'split_method' => 'nullable|in:equal,days',
+            'excluded_days_by_user' => 'nullable|array',
+            'excluded_days_by_user.*' => 'integer|min:0',
         ];
     }
 }

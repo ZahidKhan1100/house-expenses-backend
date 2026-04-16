@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 
 class Record extends Model
 {
@@ -17,12 +18,37 @@ class Record extends Model
         'timestamp',
         'added_by_name',
         'paid_by_name',
+        'split_method',
+        'bill_period_days',
     ];
 
     protected $casts = [
         'included_mates' => 'array',
         'timestamp' => 'datetime',
+        'bill_period_days' => 'integer',
     ];
+
+    protected $appends = [
+        'excluded_days_by_user',
+    ];
+
+    public function getExcludedDaysByUserAttribute(): array
+    {
+        try {
+            $rows = DB::table('record_user')
+                ->where('record_id', (int) $this->id)
+                ->get(['user_id', 'excluded_days']);
+
+            $out = [];
+            foreach ($rows as $r) {
+                $out[(int) $r->user_id] = (int) ($r->excluded_days ?? 0);
+            }
+            return $out;
+        } catch (\Throwable) {
+            // Safe fallback if table isn't migrated yet.
+            return [];
+        }
+    }
 
     public function expense()
     {

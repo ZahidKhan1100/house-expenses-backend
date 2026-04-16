@@ -16,6 +16,9 @@ class UpdateRecordRequest extends FormRequest
             'included_mates.*' => 'exists:users,id',
             'paid_by' => 'sometimes|exists:users,id',
             'month' => 'sometimes|string',
+            'split_method' => 'sometimes|in:equal,days',
+            'excluded_days_by_user' => 'sometimes|array',
+            'excluded_days_by_user.*' => 'integer|min:0',
         ];
     }
 }
