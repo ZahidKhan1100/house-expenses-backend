@@ -97,6 +97,9 @@ class PaymentController extends Controller
             $categoryBreakdown[$payer][$category]['items'][] = [
                 'title' => $title,
                 'amount' => (float) $rec->amount,
+                'split_method' => $rec->split_method ?? 'equal',
+                'bill_period_days' => $rec->bill_period_days,
+                'excluded_days_by_user' => $rec->excluded_days_by_user ?? [],
             ];
 
             $categoryBreakdown[$payer][$category]['total'] =
@@ -106,7 +109,7 @@ class PaymentController extends Controller
         // =========================
         // ✅ BALANCE FROM RECORDS (CENT-SAFE SPLITS) − PAID SETTLEMENTS
         // =========================
-        $balance = app(BalanceCalculator::class)->calculate($records, $mateIds);
+        $balance = app(BalanceCalculator::class)->calculateWithCache((int) $house->id, $month, $records, $mateIds);
 
         $balance = app(SettlementService::class)->applyPaidSettlementsToNetBalances(
             $house->id,

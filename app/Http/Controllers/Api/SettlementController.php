@@ -101,19 +101,19 @@ class SettlementController extends Controller
             settlementId: (int) $settlement->id,
         ));
 
-        $receiver = User::find($settlement->to_user_id);
-        if ($receiver?->expo_push_token) {
+        $receiver = User::with('pushTokens')->find($settlement->to_user_id);
+        if ($receiver && $receiver->allExpoPushTokens()->isNotEmpty()) {
             Log::info('Sending push', [
                 'type' => 'settlement.paid',
                 'to_user_id' => (int) $receiver->id,
                 'house_id' => (int) $user->house_id,
                 'settlement_id' => (int) $settlement->id,
             ]);
-            app(ExpoPushService::class)->send(
-                expoToken: $receiver->expo_push_token,
-                title: 'Settlement received',
-                body: ($user->name ?? 'A mate') . ' just settled ' . $houseCurrency . number_format($amount, 2) . ' with you! Tap to confirm.',
-                data: [
+            app(ExpoPushService::class)->sendToUserDevices(
+                $receiver,
+                'Settlement received',
+                ($user->name ?? 'A mate') . ' just settled ' . $houseCurrency . number_format($amount, 2) . ' with you! Tap to confirm.',
+                [
                     'type' => 'settlement.paid',
                     'settlementId' => $settlement->id,
                     'month' => $settlement->month,

@@ -19,7 +19,7 @@ class UserController extends Controller
             'status' => $user->status,
             'house_id' => $user->house_id,
             'expo_push_token' => $user->expo_push_token,
-            'has_push_token' => !empty($user->expo_push_token),
+            'has_push_token' => $user->pushTokens()->exists() || ! empty($user->expo_push_token),
             'house' => $user->house ? [
                 'id' => $user->house->id,
                 'name' => $user->house->name,

@@ -134,25 +134,32 @@ class AddRecord
                     currency: $currency,
                 ));
 
-                // Expo push: notify every OTHER member with their own share
-                $mates = User::where('house_id', $user->house_id)->get(['id', 'name', 'expo_push_token']);
+                // Expo push: notify every OTHER member (all their devices: iOS + Android)
+                $mates = User::where('house_id', $user->house_id)
+                    ->with('pushTokens')
+                    ->get(['id', 'name', 'expo_push_token']);
                 $push = app(ExpoPushService::class);
 
                 foreach ($mates as $mate) {
-                    if ((int) $mate->id === (int) $user->id) continue;
-                    $token = $mate->expo_push_token;
-                    if (!$token) {
+                    if ((int) $mate->id === (int) $user->id) {
+                        continue;
+                    }
+
+                    $share = $shares[(int) $mate->id] ?? null;
+                    if ($share === null) {
+                        continue;
+                    }
+
+                    if ($mate->allExpoPushTokens()->isEmpty()) {
                         Log::info('Push skipped (no expo token)', [
                             'type' => 'bill.created',
                             'to_user_id' => (int) $mate->id,
                             'to_user_name' => (string) ($mate->name ?? ''),
                             'house_id' => (int) $user->house_id,
                         ]);
+
                         continue;
                     }
-
-                    $share = $shares[(int) $mate->id] ?? null;
-                    if ($share === null) continue;
 
                     Log::info('Sending push', [
                         'type' => 'bill.created',
@@ -160,11 +167,11 @@ class AddRecord
                         'house_id' => (int) $user->house_id,
                         'bill_id' => (int) $record->id,
                     ]);
-                    $push->send(
-                        expoToken: $token,
-                        title: 'New bill added',
-                        body: $user->name . ' just added ' . $record->description . ' — your share is ' . $currency . number_format((float) $share, 2),
-                        data: [
+                    $push->sendToUserDevices(
+                        $mate,
+                        'New bill added',
+                        $user->name . ' just added ' . $record->description . ' — your share is ' . $currency . number_format((float) $share, 2),
+                        [
                             'type' => 'bill.created',
                             'billId' => $record->id,
                             'month' => $expense->month,

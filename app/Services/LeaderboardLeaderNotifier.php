@@ -56,19 +56,19 @@ class LeaderboardLeaderNotifier
             ->where('house_id', $house->id)
             ->whereIn('status', ['approved', 'admin'])
             ->where('id', '!=', $newId)
-            ->get(['expo_push_token']);
+            ->with('pushTokens')
+            ->get(['id', 'expo_push_token']);
 
         foreach ($mates as $m) {
-            $token = $m->expo_push_token ?? '';
-            if ($token === '') {
+            if ($m->allExpoPushTokens()->isEmpty()) {
                 continue;
             }
             try {
-                $push->send(
-                    expoToken: $token,
-                    title: $title,
-                    body: $body,
-                    data: [
+                $push->sendToUserDevices(
+                    $m,
+                    $title,
+                    $body,
+                    [
                         'type' => 'leaderboard.overtake',
                         'house_legend_user_id' => (int) $newId,
                     ],

@@ -21,6 +21,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\HouseController;
 use App\Http\Controllers\Api\ExpenseController;
 use App\Http\Controllers\Api\ReceiptScanController;
+use App\Http\Controllers\Api\LeadController;
 use App\Http\Controllers\Api\RecordController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\CategoryController;
@@ -43,6 +44,9 @@ Route::prefix('v1')->group(function () {
         ->name('verify.email');
 
     Route::post('/social-login', [SocialLoginController::class, 'login']);
+
+    Route::post('/leads', [LeadController::class, 'store'])
+        ->middleware('throttle:20,1');
 
     // Password reset routes
 
@@ -158,8 +162,9 @@ Route::prefix('v1')->group(function () {
         Route::put('/records/{record}', [RecordController::class, 'update']); // update
         Route::delete('/records/{record}', [RecordController::class, 'destroy']);
 
-        // Receipt quick-scan (Gemini OCR/extraction)
-        Route::post('/receipts/extract', [ReceiptScanController::class, 'extract']);
+        // Receipt quick-scan (Gemini OCR/extraction) — rate limited (see AppServiceProvider)
+        Route::post('/receipts/extract', [ReceiptScanController::class, 'extract'])
+            ->middleware('throttle:receipt-scan');
 
         Route::get('/profile', [UserController::class, 'profile']);
         Route::get('/users/search', [UserController::class, 'search']);

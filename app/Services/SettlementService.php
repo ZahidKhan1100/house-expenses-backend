@@ -77,7 +77,7 @@ class SettlementService
         $balanceCalculator = new BalanceCalculator();
         $engine = new SettlementEngine();
 
-        $balances = $balanceCalculator->calculate($records, $mateIds);
+        $balances = $balanceCalculator->calculateWithCache((int) $houseId, (string) $month, $records, $mateIds);
 
         $balances = $this->applyPaidSettlementsToNetBalances($houseId, $month, $balances);
 

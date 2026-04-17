@@ -2,11 +2,31 @@
 
 namespace App\Services;
 
+use App\Models\User;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class ExpoPushService
 {
+    /**
+     * Send to every Expo token registered for this user (multi-device: iOS + Android).
+     */
+    public function sendToUserDevices(?User $user, string $title, string $body, array $data = []): void
+    {
+        if (! $user) {
+            return;
+        }
+
+        $tokens = $user->allExpoPushTokens();
+        if ($tokens->isEmpty()) {
+            return;
+        }
+
+        foreach ($tokens as $token) {
+            $this->send((string) $token, $title, $body, $data);
+        }
+    }
+
     /**
      * Send via Expo Push API. Must match the channel created in the app:
      * Notifications.setNotificationChannelAsync("default", ...).

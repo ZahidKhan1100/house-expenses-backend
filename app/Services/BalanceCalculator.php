@@ -4,10 +4,48 @@
 
 namespace App\Services;
 
-use App\Models\Record;
+use Illuminate\Support\Facades\Cache;
 
 class BalanceCalculator
 {
+    /**
+     * Cache net balances for a house/month. Key version bumps when any record in the set changes.
+     */
+    public function calculateWithCache(int $houseId, string $month, $records, array $mateIds): array
+    {
+        $cfg = config('houseexpenses.split_balance_cache', []);
+        if (empty($cfg['enabled'])) {
+            return $this->calculate($records, $mateIds);
+        }
+
+        $col = collect($records);
+        $maxTs = $col->max(function ($r) {
+            $u = $r->updated_at ?? $r->created_at ?? null;
+            if ($u instanceof \DateTimeInterface) {
+                return $u->format('Y-m-d H:i:s.u');
+            }
+
+            return (string) ($u ?? '');
+        });
+        $count = $col->count();
+        $ids = $col->pluck('id')->filter()->sort()->values()->implode(',');
+
+        $key = sprintf(
+            'split_balance:v1:%d:%s:%d:%s:%s',
+            $houseId,
+            $month,
+            $count,
+            md5((string) $maxTs),
+            md5($ids)
+        );
+
+        $ttl = (int) ($cfg['ttl'] ?? 3600);
+        $storeName = $cfg['store'] ?? null;
+        $cache = $storeName ? Cache::store($storeName) : Cache::store();
+
+        return $cache->remember($key, max(60, $ttl), fn () => $this->calculate($records, $mateIds));
+    }
+
     public function calculate($records, array $mateIds): array
     {
         $mateIds = array_map(static fn ($id) => (int) $id, $mateIds);

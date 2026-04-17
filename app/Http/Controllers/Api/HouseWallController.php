@@ -178,18 +178,18 @@ class HouseWallController extends Controller
                 $push = app(ExpoPushService::class);
                 $mates = User::query()
                     ->where('house_id', $user->house_id)
+                    ->with('pushTokens')
                     ->get(['id', 'expo_push_token']);
 
                 foreach ($mates as $mate) {
                     if ((int) $mate->id === (int) $user->id) {
                         continue;
                     }
-                    $token = $mate->expo_push_token ?? '';
-                    if ($token === '') {
+                    if ($mate->allExpoPushTokens()->isEmpty()) {
                         continue;
                     }
-                    $push->send(
-                        $token,
+                    $push->sendToUserDevices(
+                        $mate,
                         'Running low',
                         'House is low on ' . $label . '! — ' . $user->name,
                         ['type' => 'house.running_low', 'requestId' => $payload['id']],

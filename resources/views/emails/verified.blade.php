@@ -1,70 +1,49 @@
+{{--
+  Browser page shown after email verification (not an email). No external CSS — works offline and in strict environments.
+--}}
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Verification Successful | HabiMate</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;800&display=swap" rel="stylesheet">
-    <style>
-        body { 
-            font-family: 'Sora', sans-serif; 
-            background-color: #0f172a; 
-        }
-        .mesh-gradient {
-            background-color: #0f172a;
-            background-image: 
-                radial-gradient(at 0% 0%, rgba(78, 84, 200, 0.15) 0px, transparent 50%),
-                radial-gradient(at 100% 100%, rgba(255, 107, 107, 0.15) 0px, transparent 50%);
-        }
-        .glass-card { 
-            background: rgba(255, 255, 255, 0.03);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        .success-icon {
-            background: linear-gradient(135deg, #FF6B6B 0%, #4E54C8 100%);
-            box-shadow: 0 10px 25px rgba(255, 107, 107, 0.3);
-        }
-    </style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="dark light">
+  <title>Email verified — HabiMate</title>
 </head>
-<body class="mesh-gradient text-slate-200 min-h-screen flex items-center justify-center p-6">
+<body style="margin:0;min-height:100vh;background-color:#0b1220;background-image:radial-gradient(ellipse 80% 50% at 50% -20%, rgba(255,106,106,0.25) 0%, transparent 55%), radial-gradient(ellipse 60% 40% at 100% 50%, rgba(46,196,182,0.12) 0%, transparent 50%);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="min-height:100vh;">
+    <tr>
+      <td align="center" style="padding:48px 20px;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:440px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:24px;backdrop-filter:blur(12px);box-shadow:0 24px 48px rgba(0,0,0,0.35);">
+          <tr>
+            <td style="padding:40px 32px 32px;text-align:center;">
+              <div style="width:72px;height:72px;margin:0 auto 24px;border-radius:20px;background:linear-gradient(135deg,#FF6A6A,#2EC4B6);text-align:center;line-height:72px;box-shadow:0 12px 32px rgba(255,106,106,0.35);">
+                <span style="font-size:36px;color:#ffffff;">✓</span>
+              </div>
 
-    <div class="max-w-md w-full glass-card rounded-[2.5rem] p-10 text-center shadow-2xl relative overflow-hidden">
-        <div class="absolute -top-24 -right-24 w-48 h-48 bg-indigo-600/20 blur-[80px] rounded-full"></div>
-        
-        <div class="relative z-10">
-            <div class="w-20 h-20 success-icon rounded-3xl flex items-center justify-center mx-auto mb-8">
-                <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>
-                </svg>
-            </div>
-
-            @if ($status === 'success')
-                <h1 class="text-4xl font-extrabold text-white mb-4 tracking-tight leading-tight">
-                    Congrats, <span class="bg-clip-text text-transparent bg-gradient-to-r from-rose-400 to-rose-500">{{ $name }}!</span>
+              @if (($status ?? '') === 'success')
+                <h1 style="margin:0 0 12px;font-size:26px;font-weight:800;color:#f8fafc;letter-spacing:-0.02em;line-height:1.2;">
+                  You’re verified, {{ $name }}!
                 </h1>
-                <p class="text-slate-400 text-lg leading-relaxed mb-10">
-                    Your email is verified. Your habitat is now ready for shared living, house or away.
+                <p style="margin:0;font-size:16px;line-height:1.6;color:#94a3b8;">
+                  Your email is confirmed. Open the HabiMate app and settle in—your house is ready when you are.
                 </p>
-            @else
-                <h1 class="text-3xl font-extrabold text-white mb-4 tracking-tight">
-                    Already Verified
+              @else
+                <h1 style="margin:0 0 12px;font-size:24px;font-weight:800;color:#f8fafc;letter-spacing:-0.02em;">
+                  Already verified
                 </h1>
-                <p class="text-slate-400 text-lg leading-relaxed mb-10">
-                    Hello {{ $name }}, your account is already active. You're good to go!
+                <p style="margin:0;font-size:16px;line-height:1.6;color:#94a3b8;">
+                  Hi {{ $name }}, your account is already active. Jump back into the app anytime.
                 </p>
-            @endif
+              @endif
 
-            {{-- <a href="habimate://login" class="block w-full py-4 rounded-2xl bg-white text-slate-900 font-extrabold text-lg shadow-xl hover:bg-slate-100 transition transform hover:-translate-y-1">
-                Open HabiMate App
-            </a> --}}
-
-            <p class="mt-8 text-xs font-bold text-slate-500 uppercase tracking-widest">
-                Thank you for joining <span class="text-rose-500">HabiMate</span>
-            </p>
-        </div>
-    </div>
-
+              <p style="margin:32px 0 0;font-size:11px;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;color:#64748b;">
+                HabiMate · Shared living, simplified
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
 </body>
 </html>

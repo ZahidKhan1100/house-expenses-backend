@@ -64,4 +64,27 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasMany(Trip::class, 'admin_id');
     }
 
+    public function pushTokens()
+    {
+        return $this->hasMany(UserPushToken::class);
+    }
+
+    /**
+     * All Expo push tokens for this user (table + legacy column), deduped.
+     *
+     * @return \Illuminate\Support\Collection<int, string>
+     */
+    public function allExpoPushTokens(): \Illuminate\Support\Collection
+    {
+        $tokens = $this->relationLoaded('pushTokens')
+            ? $this->pushTokens->pluck('token')
+            : $this->pushTokens()->pluck('token');
+
+        if (! empty($this->expo_push_token)) {
+            $tokens = $tokens->push($this->expo_push_token);
+        }
+
+        return $tokens->filter()->unique()->values();
+    }
+
 }

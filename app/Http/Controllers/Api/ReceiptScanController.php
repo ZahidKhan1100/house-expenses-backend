@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Support\ReceiptImagePreparer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -17,7 +18,8 @@ class ReceiptScanController extends Controller
         }
 
         $data = $request->validate([
-            'image' => ['required', 'file', 'mimes:jpg,jpeg,png,webp', 'max:10240'], // 10MB
+            'image' => ['required_without:image_url', 'file', 'mimes:jpg,jpeg,png,webp', 'max:10240'], // 10MB
+            'image_url' => ['required_without:image', 'url', 'max:2048'],
         ]);
 
         $apiKey = env('GEMINI_API_KEY');
@@ -25,9 +27,21 @@ class ReceiptScanController extends Controller
             return response()->json(['message' => 'Gemini not configured'], 500);
         }
 
-        $file = $data['image'];
-        $mime = $file->getMimeType() ?: 'image/jpeg';
-        $base64 = base64_encode(file_get_contents($file->getRealPath()));
+        $maxW = (int) config('houseexpenses.receipt_scan.max_width', 1000);
+        try {
+            if (! empty($data['image_url'] ?? null)) {
+                [$binary, $mime] = ReceiptImagePreparer::fromRemoteUrl((string) $data['image_url'], $maxW);
+            } else {
+                $file = $data['image'];
+                [$binary, $mime] = ReceiptImagePreparer::fromUploadedFile($file, $maxW);
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Receipt image prepare failed: '.$e->getMessage());
+
+            return response()->json(['message' => 'Invalid receipt image'], 422);
+        }
+
+        $base64 = base64_encode($binary);
 
         $prompt = 'Act as an expert accountant. Analyze this receipt image and return a JSON object with: total_amount (float), currency (ISO string), merchant_name (string), and date (YYYY-MM-DD). If you cannot find a value, return null for that field.';
 
