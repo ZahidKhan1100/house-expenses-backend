@@ -30,6 +30,7 @@ class Record extends Model
 
     protected $appends = [
         'excluded_days_by_user',
+        'guest_extra_days_by_user',
     ];
 
     public function getExcludedDaysByUserAttribute(): array
@@ -46,6 +47,24 @@ class Record extends Model
             return $out;
         } catch (\Throwable) {
             // Safe fallback if table isn't migrated yet.
+            return [];
+        }
+    }
+
+    public function getGuestExtraDaysByUserAttribute(): array
+    {
+        try {
+            $rows = DB::table('record_user')
+                ->where('record_id', (int) $this->id)
+                ->get(['user_id', 'guest_extra_days']);
+
+            $out = [];
+            foreach ($rows as $r) {
+                $out[(int) $r->user_id] = (int) ($r->guest_extra_days ?? 0);
+            }
+
+            return $out;
+        } catch (\Throwable) {
             return [];
         }
     }

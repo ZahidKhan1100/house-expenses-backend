@@ -17,6 +17,10 @@ class Settlement extends Model
         'from_name',
         'to_name',
         'amount',
+        'source',
+        'type',
+        'title',
+        'note',
         'status',
         'settled_at',
     ];

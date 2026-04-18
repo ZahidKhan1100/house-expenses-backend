@@ -52,6 +52,10 @@ class SettlementController extends Controller
                 'from_name' => $s->from_name,
                 'to_name' => $s->to_name,
                 'amount' => round((float) $s->amount, 2),
+                'source' => $s->source ?? null,
+                'type' => $s->type ?? null,
+                'title' => $s->title ?? null,
+                'note' => $s->note ?? null,
                 'status' => $s->status,
                 'settled_at' => $s->settled_at,
             ];

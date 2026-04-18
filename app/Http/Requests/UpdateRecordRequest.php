@@ -19,6 +19,8 @@ class UpdateRecordRequest extends FormRequest
             'split_method' => 'sometimes|in:equal,days',
             'excluded_days_by_user' => 'sometimes|array',
             'excluded_days_by_user.*' => 'integer|min:0',
+            'guest_extra_days_by_user' => 'sometimes|array',
+            'guest_extra_days_by_user.*' => 'integer|min:0',
         ];
     }
 }

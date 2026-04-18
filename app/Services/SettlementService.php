@@ -22,9 +22,15 @@ class SettlementService
      */
     public function applyPaidSettlementsToNetBalances(int $houseId, string $month, array $balance): array
     {
+        // Only apply paid transfers that relate to expense balancing.
+        // Manual transfers like stock buy-backs are separate “ledgers” and should NOT
+        // reduce (or invert) expense-based balances when regenerating settlement plans.
         $paid = Settlement::where('house_id', $houseId)
             ->where('month', $month)
             ->where('status', 'paid')
+            ->where(function ($q) {
+                $q->whereNull('type')->orWhere('type', 'expense');
+            })
             ->get();
 
         foreach ($paid as $s) {
@@ -87,6 +93,7 @@ class SettlementService
         Settlement::where('house_id', $houseId)
             ->where('month', $month)
             ->where('status', 'pending')
+            ->where('source', 'engine')
             ->delete();
 
 
@@ -103,6 +110,8 @@ class SettlementService
                 'from_name' => $fromUser?->name ?? 'Unknown',
                 'to_name' => $toUser?->name ?? 'Unknown',
                 'amount' => $tx['amount'],
+                'source' => 'engine',
+                'type' => 'expense',
                 'status' => 'pending', // 🔥 IMPORTANT
             ]);
         }

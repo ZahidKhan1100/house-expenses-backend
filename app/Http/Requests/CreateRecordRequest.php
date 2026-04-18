@@ -24,6 +24,8 @@ class CreateRecordRequest extends FormRequest
             'split_method' => 'nullable|in:equal,days',
             'excluded_days_by_user' => 'nullable|array',
             'excluded_days_by_user.*' => 'integer|min:0',
+            'guest_extra_days_by_user' => 'nullable|array',
+            'guest_extra_days_by_user.*' => 'integer|min:0',
         ];
     }
 }

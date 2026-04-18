@@ -52,6 +52,9 @@ class UpdateRecord
             $excludedByUser = is_array($data['excluded_days_by_user'] ?? null)
                 ? $data['excluded_days_by_user']
                 : null;
+            $guestExtraByUser = is_array($data['guest_extra_days_by_user'] ?? null)
+                ? $data['guest_extra_days_by_user']
+                : null;
 
             $billPeriodDays = $record->bill_period_days;
             if ($splitMethod === 'days') {
@@ -89,19 +92,28 @@ class UpdateRecord
                 'timestamp' => now(),
             ]);
 
-            // Upsert excluded days only when provided in request.
-            if (is_array($excludedByUser)) {
+            // Upsert per-mate split rows when either map is provided.
+            if (is_array($excludedByUser) || is_array($guestExtraByUser)) {
                 try {
+                    $prevEx = $record->excluded_days_by_user;
+                    $prevGx = $record->guest_extra_days_by_user;
                     $rows = [];
                     foreach ($includedMates as $mate) {
                         $uid = (int) ($mate['id'] ?? 0);
                         if (!$uid) continue;
-                        $ex = (int) ($excludedByUser[$uid] ?? $excludedByUser[(string) $uid] ?? 0);
+                        $ex = is_array($excludedByUser)
+                            ? (int) ($excludedByUser[$uid] ?? $excludedByUser[(string) $uid] ?? 0)
+                            : (int) ($prevEx[$uid] ?? 0);
                         if ($ex < 0) $ex = 0;
+                        $gx = is_array($guestExtraByUser)
+                            ? (int) ($guestExtraByUser[$uid] ?? $guestExtraByUser[(string) $uid] ?? 0)
+                            : (int) ($prevGx[$uid] ?? 0);
+                        if ($gx < 0) $gx = 0;
                         $rows[] = [
                             'record_id' => (int) $record->id,
                             'user_id' => $uid,
                             'excluded_days' => $ex,
+                            'guest_extra_days' => $gx,
                             'created_at' => now(),
                             'updated_at' => now(),
                         ];
@@ -110,7 +122,7 @@ class UpdateRecord
                         DB::table('record_user')->upsert(
                             $rows,
                             ['record_id', 'user_id'],
-                            ['excluded_days', 'updated_at']
+                            ['excluded_days', 'guest_extra_days', 'updated_at']
                         );
                     }
                 } catch (\Throwable) {

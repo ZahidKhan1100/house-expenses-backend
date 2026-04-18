@@ -24,6 +24,9 @@ class AddRecord
             $excludedByUser = is_array($data['excluded_days_by_user'] ?? null)
                 ? $data['excluded_days_by_user']
                 : [];
+            $guestExtraByUser = is_array($data['guest_extra_days_by_user'] ?? null)
+                ? $data['guest_extra_days_by_user']
+                : [];
 
             // Get or create the current expense month
             $expense = Expense::firstOrCreate(
@@ -81,10 +84,13 @@ class AddRecord
                     if (!$uid) continue;
                     $ex = (int) ($excludedByUser[$uid] ?? $excludedByUser[(string) $uid] ?? 0);
                     if ($ex < 0) $ex = 0;
+                    $gx = (int) ($guestExtraByUser[$uid] ?? $guestExtraByUser[(string) $uid] ?? 0);
+                    if ($gx < 0) $gx = 0;
                     $rows[] = [
                         'record_id' => (int) $record->id,
                         'user_id' => $uid,
                         'excluded_days' => $ex,
+                        'guest_extra_days' => $gx,
                         'created_at' => now(),
                         'updated_at' => now(),
                     ];
@@ -93,7 +99,7 @@ class AddRecord
                     DB::table('record_user')->upsert(
                         $rows,
                         ['record_id', 'user_id'],
-                        ['excluded_days', 'updated_at']
+                        ['excluded_days', 'guest_extra_days', 'updated_at']
                     );
                 }
             } catch (\Throwable) {
@@ -111,25 +117,30 @@ class AddRecord
                 $house = $user->house;
                 $currency = $house?->currency ?? '$';
 
+                $fresh = Record::find($record->id);
+
                 // Cent-safe share for each participant (id => amount)
-                if (($record->split_method ?? 'equal') === 'days') {
-                    $excluded = is_array($record->excluded_days_by_user ?? null) ? $record->excluded_days_by_user : [];
-                    $billDays = (int) ($record->bill_period_days ?? 0);
-                    $weighted = array_map(static function ($m) use ($excluded, $billDays) {
+                if (($fresh->split_method ?? 'equal') === 'days') {
+                    $excluded = is_array($fresh->excluded_days_by_user ?? null) ? $fresh->excluded_days_by_user : [];
+                    $guestExtra = is_array($fresh->guest_extra_days_by_user ?? null) ? $fresh->guest_extra_days_by_user : [];
+                    $billDays = (int) ($fresh->bill_period_days ?? 0);
+                    $weighted = array_map(static function ($m) use ($excluded, $guestExtra, $billDays) {
                         $id = (int) ($m['id'] ?? 0);
                         $ex = (int) ($excluded[$id] ?? 0);
                         if ($ex < 0) $ex = 0;
-                        $eff = max(0, $billDays - $ex);
+                        $gx = (int) ($guestExtra[$id] ?? 0);
+                        if ($gx < 0) $gx = 0;
+                        $eff = max(0, $billDays - $ex) + $gx;
                         return ['id' => $id, 'weight' => $eff];
                     }, $includedMates);
-                    $shares = ExpenseSplit::sharePerUserWeighted((float) $record->amount, $weighted);
+                    $shares = ExpenseSplit::sharePerUserWeighted((float) $fresh->amount, $weighted);
                 } else {
-                    $shares = ExpenseSplit::sharePerUser((float) $record->amount, $includedMates);
+                    $shares = ExpenseSplit::sharePerUser((float) $fresh->amount, $includedMates);
                 }
 
                 event(new BillCreated(
                     houseId: (int) $user->house_id,
-                    record: $record,
+                    record: $fresh,
                     shares: $shares,
                     currency: $currency,
                 ));
@@ -165,15 +176,15 @@ class AddRecord
                         'type' => 'bill.created',
                         'to_user_id' => (int) $mate->id,
                         'house_id' => (int) $user->house_id,
-                        'bill_id' => (int) $record->id,
+                        'bill_id' => (int) $fresh->id,
                     ]);
                     $push->sendToUserDevices(
                         $mate,
                         'New bill added',
-                        $user->name . ' just added ' . $record->description . ' — your share is ' . $currency . number_format((float) $share, 2),
+                        $user->name . ' just added ' . $fresh->description . ' — your share is ' . $currency . number_format((float) $share, 2),
                         [
                             'type' => 'bill.created',
-                            'billId' => $record->id,
+                            'billId' => $fresh->id,
                             'month' => $expense->month,
                         ],
                     );

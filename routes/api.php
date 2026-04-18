@@ -22,6 +22,8 @@ use App\Http\Controllers\Api\HouseController;
 use App\Http\Controllers\Api\ExpenseController;
 use App\Http\Controllers\Api\ReceiptScanController;
 use App\Http\Controllers\Api\LeadController;
+use App\Http\Controllers\Api\BuybackController;
+use App\Http\Controllers\Api\HouseCalendarController;
 use App\Http\Controllers\Api\RecordController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\CategoryController;
@@ -189,6 +191,12 @@ Route::prefix('v1')->group(function () {
         Route::put('/mates/{id}', [MateController::class, 'update']);
         Route::delete('/mates/{id}', [MateController::class, 'destroy']);
 
+        // Vacation / guest calendar (Who's Home)
+        Route::get('/house/calendar', [HouseCalendarController::class, 'index']);
+        Route::get('/house/calendar/presence', [HouseCalendarController::class, 'presence']);
+        Route::post('/house/calendar', [HouseCalendarController::class, 'store']);
+        Route::delete('/house/calendar/{id}', [HouseCalendarController::class, 'destroy']);
+
         Route::get('/payments/{month?}', [PaymentController::class, 'index']);
         Route::get('/house/{houseId}/insights', [InsightsController::class, 'index']);
         Route::get('/house/current/expenses', [InsightsController::class, 'getExpensesByMonth']);
@@ -199,6 +207,7 @@ Route::prefix('v1')->group(function () {
         Route::get('/settlements', [SettlementController::class, 'index']);
         Route::post('/settlements/generate', [SettlementController::class, 'generate']);
         Route::post('/settlements/{id}/mark-paid', [SettlementController::class, 'markPaid']);
+        Route::post('/buybacks', [BuybackController::class, 'store']);
 
         // Trips
 
