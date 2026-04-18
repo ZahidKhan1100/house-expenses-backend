@@ -10,6 +10,73 @@ use Illuminate\Support\Facades\Log;
 
 class ReceiptScanController extends Controller
 {
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function geminiGenerateContent(string $apiKey, string $model, array $payload): \Illuminate\Http\Client\Response
+    {
+        $url = 'https://generativelanguage.googleapis.com/v1beta/models/'.rawurlencode($model).':generateContent';
+
+        return Http::timeout(45)
+            ->post($url.'?key='.urlencode($apiKey), $payload);
+    }
+
+    /**
+     * @param  array<string, mixed>  $json
+     */
+    private function extractGeminiOutputText(array $json): ?string
+    {
+        $blockReason = $json['promptFeedback']['blockReason'] ?? null;
+        if (is_string($blockReason) && $blockReason !== '') {
+            Log::warning('Gemini receipt: prompt blocked', ['blockReason' => $blockReason]);
+
+            return null;
+        }
+
+        $candidates = $json['candidates'] ?? null;
+        if (! is_array($candidates) || $candidates === []) {
+            Log::warning('Gemini receipt: no candidates', ['keys' => array_keys($json)]);
+
+            return null;
+        }
+
+        $first = $candidates[0] ?? null;
+        if (! is_array($first)) {
+            return null;
+        }
+
+        $finish = $first['finishReason'] ?? null;
+        if (is_string($finish) && $finish !== '' && $finish !== 'STOP' && $finish !== 'MAX_TOKENS') {
+            Log::warning('Gemini receipt: unexpected finish', ['finishReason' => $finish]);
+        }
+
+        $parts = $first['content']['parts'] ?? null;
+        if (! is_array($parts) || $parts === []) {
+            return null;
+        }
+
+        $text = $parts[0]['text'] ?? null;
+
+        return is_string($text) ? $text : null;
+    }
+
+    private function decodeReceiptJsonFromModel(string $text): ?array
+    {
+        $trimmed = trim($text);
+        if ($trimmed === '') {
+            return null;
+        }
+
+        // Model sometimes wraps JSON in markdown fences despite instructions.
+        $trimmed = preg_replace('/^\s*```(?:json)?\s*/i', '', $trimmed) ?? $trimmed;
+        $trimmed = preg_replace('/\s*```\s*$/', '', $trimmed) ?? $trimmed;
+        $trimmed = trim($trimmed);
+
+        $parsed = json_decode($trimmed, true);
+
+        return is_array($parsed) ? $parsed : null;
+    }
+
     public function extract(Request $request)
     {
         $user = $request->user();
@@ -49,39 +116,64 @@ class ReceiptScanController extends Controller
             'contents' => [[
                 'role' => 'user',
                 'parts' => [
-                    ['text' => $prompt . "\n\nReturn ONLY valid JSON. No markdown, no backticks."],
                     ['inline_data' => ['mime_type' => $mime, 'data' => $base64]],
+                    ['text' => $prompt."\n\nReturn ONLY valid JSON. No markdown, no backticks."],
                 ],
             ]],
             'generationConfig' => [
                 'temperature' => 0.1,
-                'maxOutputTokens' => 256,
-                'responseMimeType' => 'application/json',
+                'maxOutputTokens' => 512,
             ],
         ];
 
         try {
-            $url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
-            $resp = Http::timeout(25)
-                ->post($url . '?key=' . urlencode($apiKey), $payload);
+            $preferred = trim((string) (config('houseexpenses.receipt_scan.gemini_model') ?: 'gemini-1.5-flash'));
+            $modelsToTry = array_values(array_unique(array_filter([
+                $preferred !== '' ? $preferred : null,
+                'gemini-1.5-flash',
+                'gemini-2.0-flash',
+            ])));
 
-            if (!$resp->successful()) {
+            $resp = null;
+            foreach ($modelsToTry as $model) {
+                $resp = $this->geminiGenerateContent($apiKey, $model, $payload);
+                if ($resp->successful()) {
+                    break;
+                }
+
+                $errMsg = (string) ($resp->json('error.message') ?? '');
+                $retry = $resp->status() === 404
+                    || str_contains(strtolower($errMsg), 'not found')
+                    || str_contains(strtolower($errMsg), 'not supported')
+                    || str_contains(strtolower($errMsg), 'is not found');
+
                 Log::warning('Gemini receipt extract HTTP error', [
+                    'model' => $model,
                     'status' => $resp->status(),
                     'body' => $resp->body(),
                 ]);
+
+                if (! $retry) {
+                    break;
+                }
+            }
+
+            if ($resp === null || ! $resp->successful()) {
                 return response()->json(['message' => 'Receipt scan failed'], 502);
             }
 
             $json = $resp->json();
-            $text = $json['candidates'][0]['content']['parts'][0]['text'] ?? null;
-            if (!is_string($text) || trim($text) === '') {
+            if (! is_array($json)) {
+                return response()->json(['message' => 'Receipt scan failed'], 502);
+            }
+
+            $text = $this->extractGeminiOutputText($json);
+            if (! is_string($text) || trim($text) === '') {
                 return response()->json(['message' => 'Receipt scan returned no content'], 502);
             }
 
-            // Parse model output as JSON
-            $parsed = json_decode($text, true);
-            if (!is_array($parsed)) {
+            $parsed = $this->decodeReceiptJsonFromModel($text);
+            if (! is_array($parsed)) {
                 return response()->json([
                     'message' => 'Could not parse receipt scan result',
                     'raw' => $text,

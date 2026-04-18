@@ -23,6 +23,8 @@ return [
     'receipt_scan' => [
         'max_width' => (int) env('RECEIPT_IMAGE_MAX_WIDTH', 1000),
         'per_minute' => (int) env('RECEIPT_SCAN_PER_MINUTE', 10),
+        /** @see https://ai.google.dev/gemini-api/docs/models/gemini — 1.5-flash works on most AI Studio keys */
+        'gemini_model' => env('GEMINI_MODEL', 'gemini-1.5-flash'),
     ],
 
 ];
