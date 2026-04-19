@@ -100,8 +100,8 @@ class SettlementService
         // store new settlements
         foreach ($transactions as $tx) {
 
-            $fromUser = User::find($tx['from_user_id']);
-            $toUser = User::find($tx['to_user_id']);
+            $fromUser = User::withTrashed()->find($tx['from_user_id']);
+            $toUser = User::withTrashed()->find($tx['to_user_id']);
             Settlement::create([
                 'house_id' => $houseId,
                 'month' => $month,

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\House;
 use App\Models\JoinRequest;
+use App\Models\Settlement;
 use Illuminate\Http\Request;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
@@ -179,6 +180,13 @@ class MateController extends Controller
         }
 
         $house = House::findOrFail($admin->house_id);
+
+        if (Settlement::houseUserHasPending((int) $mate->house_id, (int) $mate->id)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This member has pending settlements. Settle those transfers before removing them.',
+            ], 422);
+        }
 
         return DB::transaction(function () use ($house, $mate) {
 

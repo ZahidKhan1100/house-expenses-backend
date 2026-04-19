@@ -39,4 +39,20 @@ class Settlement extends Model
     {
         return $this->belongsTo(User::class, 'to_user_id');
     }
+
+    /**
+     * Whether this user appears on any pending settlement row for the house
+     * (must settle or confirm before leaving / account deletion).
+     */
+    public static function houseUserHasPending(int $houseId, int $userId): bool
+    {
+        return static::query()
+            ->where('house_id', $houseId)
+            ->where('status', 'pending')
+            ->where(function ($q) use ($userId) {
+                $q->where('from_user_id', $userId)
+                    ->orWhere('to_user_id', $userId);
+            })
+            ->exists();
+    }
 }

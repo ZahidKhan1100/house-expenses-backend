@@ -42,15 +42,29 @@ class SettlementController extends Controller
             ->orderByDesc('created_at')
             ->get();
 
+        $userIds = $settlements
+            ->flatMap(fn (Settlement $s) => [$s->from_user_id, $s->to_user_id])
+            ->unique()
+            ->filter()
+            ->values();
+        $nameById = User::withTrashed()
+            ->whereIn('id', $userIds)
+            ->get()
+            ->keyBy('id');
+
         // Full history for the month: pending = planned transfers, paid = completed.
         // Amounts are not recomputed from expenses here — each row is a stored transfer.
-        $rows = $settlements->map(function (Settlement $s) {
+        // Prefer live names (incl. soft-deleted accounts) over stale snapshots.
+        $rows = $settlements->map(function (Settlement $s) use ($nameById) {
+            $fromName = $nameById->get($s->from_user_id)?->name ?? $s->from_name ?? 'Unknown';
+            $toName = $nameById->get($s->to_user_id)?->name ?? $s->to_name ?? 'Unknown';
+
             return [
                 'id' => $s->id,
                 'from_user_id' => $s->from_user_id,
                 'to_user_id' => $s->to_user_id,
-                'from_name' => $s->from_name,
-                'to_name' => $s->to_name,
+                'from_name' => $fromName,
+                'to_name' => $toName,
                 'amount' => round((float) $s->amount, 2),
                 'source' => $s->source ?? null,
                 'type' => $s->type ?? null,

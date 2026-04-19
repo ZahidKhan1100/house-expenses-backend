@@ -2,6 +2,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Settlement;
 use App\Models\User;
 use Illuminate\Http\Request;
 
@@ -11,6 +12,11 @@ class UserController extends Controller
     {
         $user = $request->user()->load('house'); // eager load house relationship
 
+        $houseId = $user->house_id;
+        $hasPendingSettlements = $houseId
+            ? Settlement::houseUserHasPending((int) $houseId, (int) $user->id)
+            : false;
+
         return response()->json([
             'id' => $user->id,
             'name' => $user->name,
@@ -18,6 +24,7 @@ class UserController extends Controller
             'role' => $user->role,
             'status' => $user->status,
             'house_id' => $user->house_id,
+            'has_pending_settlements' => $hasPendingSettlements,
             'expo_push_token' => $user->expo_push_token,
             'has_push_token' => $user->pushTokens()->exists() || ! empty($user->expo_push_token),
             'house' => $user->house ? [

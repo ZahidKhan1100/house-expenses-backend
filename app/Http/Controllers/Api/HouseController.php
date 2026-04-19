@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Actions\Houses\CreateHouse;
 use App\Actions\Houses\JoinHouse;
 use App\Http\Requests\CreateHouseRequest;
+use App\Models\Settlement;
 use App\Models\User;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use App\Models\House;
@@ -106,6 +107,13 @@ class HouseController extends Controller
             return response()->json(['success' => false, 'message' => 'Not in any house'], 400);
         }
 
+        if (Settlement::houseUserHasPending((int) $user->house_id, (int) $user->id)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You have pending settlements for this house. Mark them paid or settle up before leaving.',
+            ], 422);
+        }
+
         return DB::transaction(function () use ($user) {
             $house = $user->house;
 
@@ -154,6 +162,13 @@ class HouseController extends Controller
     public function deleteAccount()
     {
         $user = Auth::user();
+
+        if ($user->house_id && Settlement::houseUserHasPending((int) $user->house_id, (int) $user->id)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You have pending settlements for this house. Mark them paid or settle up before deleting your account.',
+            ], 422);
+        }
 
         return DB::transaction(function () use ($user) {
 

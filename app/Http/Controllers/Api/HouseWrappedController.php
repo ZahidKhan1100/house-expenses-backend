@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\DB;
 class HouseWrappedController extends Controller
 {
     /**
-     * Monthly shareable summary (defaults to previous calendar month).
+     * Monthly shareable summary (defaults to current calendar month).
      */
     public function index(Request $request, KarmaService $karma)
     {
@@ -30,7 +30,7 @@ class HouseWrappedController extends Controller
         }
 
         if (!$month) {
-            $month = Carbon::now()->subMonth()->format('Y-m');
+            $month = Carbon::now()->format('Y-m');
         }
 
         $start = Carbon::createFromFormat('Y-m', $month)->startOfMonth();

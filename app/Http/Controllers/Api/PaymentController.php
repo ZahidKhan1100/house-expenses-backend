@@ -120,11 +120,18 @@ class PaymentController extends Controller
         $rawTx = (new SettlementEngine())->optimize($balance);
 
         $transactions = collect($rawTx)
-            ->map(fn (array $tx) => [
-                'from' => $tx['from_user_id'],
-                'to' => $tx['to_user_id'],
-                'amount' => $tx['amount'],
-            ])
+            ->map(function (array $tx) {
+                $fromUser = User::withTrashed()->find($tx['from_user_id']);
+                $toUser = User::withTrashed()->find($tx['to_user_id']);
+
+                return [
+                    'from' => $tx['from_user_id'],
+                    'to' => $tx['to_user_id'],
+                    'amount' => $tx['amount'],
+                    'from_name' => $fromUser?->name,
+                    'to_name' => $toUser?->name,
+                ];
+            })
             ->values()
             ->all();
 
@@ -138,7 +145,7 @@ class PaymentController extends Controller
             if (!in_array($tid, $existingMateIds, true)) {
                 $mates->push([
                     'id' => $tid,
-                    'name' => User::find($tid)?->name ?? 'Unknown',
+                    'name' => User::withTrashed()->find($tid)?->name ?? 'Unknown',
                 ]);
             }
         }
