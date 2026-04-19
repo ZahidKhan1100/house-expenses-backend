@@ -110,7 +110,10 @@ class ReceiptScanController extends Controller
 
         $base64 = base64_encode($binary);
 
-        $prompt = 'Act as an expert accountant. Analyze this receipt image and return a JSON object with: total_amount (float), currency (ISO string), merchant_name (string), and date (YYYY-MM-DD). If you cannot find a value, return null for that field.';
+        $prompt = 'Act as an expert accountant. Analyze this receipt image and return a JSON object with: total_amount (float), currency (ISO string), merchant_name (string), date (YYYY-MM-DD), and category_hint (string). '
+            .'For category_hint, suggest ONE short label for the type of spend (English), e.g. Groceries, Dining, Rent, Utilities, Transport, Shopping, Health, Entertainment, Subscriptions, Home, Other. '
+            .'Infer from merchant and line items (e.g. supermarket -> Groceries, restaurant -> Dining). If unclear, use Other. '
+            .'If you cannot find a value for a field, return null for that field.';
 
         $payload = [
             'contents' => [[
@@ -195,12 +198,14 @@ class ReceiptScanController extends Controller
             $currency = array_key_exists('currency', $parsed) ? $parsed['currency'] : null;
             $merchant = array_key_exists('merchant_name', $parsed) ? $parsed['merchant_name'] : null;
             $date = array_key_exists('date', $parsed) ? $parsed['date'] : null;
+            $categoryHint = array_key_exists('category_hint', $parsed) ? $parsed['category_hint'] : null;
 
             $out = [
                 'total_amount' => is_numeric($total) ? (float) $total : null,
                 'currency' => is_string($currency) && $currency !== '' ? strtoupper(trim($currency)) : null,
                 'merchant_name' => is_string($merchant) && $merchant !== '' ? trim($merchant) : null,
                 'date' => is_string($date) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) ? $date : null,
+                'category_hint' => is_string($categoryHint) && trim($categoryHint) !== '' ? substr(trim($categoryHint), 0, 80) : null,
             ];
 
             return response()->json([
