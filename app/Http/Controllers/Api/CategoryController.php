@@ -34,7 +34,7 @@ class CategoryController extends Controller
         $house = $user->house;
 
         if (!$house) {
-            return response()->json(['error' => 'No house assigned'], 403);
+            return response()->json(['success' => false, 'message' => 'No house assigned'], 403);
         }
 
         $category = ManageCategory::create($house, $data);
@@ -53,7 +53,7 @@ class CategoryController extends Controller
         $house = $user->house;
 
         if ($category->house_id !== $house->id) {
-            return response()->json(['error' => 'Unauthorized'], 403);
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
         }
 
         $category = ManageCategory::update($category, $data);
@@ -67,7 +67,7 @@ class CategoryController extends Controller
         $house = $user->house;
 
         if ($category->house_id !== $house->id) {
-            return response()->json(['error' => 'Unauthorized'], 403);
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
         }
 
         $category->delete();

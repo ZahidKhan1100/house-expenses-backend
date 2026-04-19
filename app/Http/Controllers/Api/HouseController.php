@@ -103,14 +103,14 @@ class HouseController extends Controller
         $user = Auth::user();
 
         if (!$user->house_id) {
-            return response()->json(['error' => 'Not in any house'], 400);
+            return response()->json(['success' => false, 'message' => 'Not in any house'], 400);
         }
 
         return DB::transaction(function () use ($user) {
             $house = $user->house;
 
             if (!$house) {
-                return response()->json(['error' => 'House not found'], 404);
+                return response()->json(['success' => false, 'message' => 'House not found'], 404);
             }
 
             // Find the oldest remaining approved/admin mate (excluding current user)

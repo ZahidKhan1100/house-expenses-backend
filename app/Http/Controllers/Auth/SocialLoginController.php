@@ -34,11 +34,11 @@ class SocialLoginController extends Controller
         } elseif ($provider === 'apple') {
             $userData = $this->verifyAppleToken($token);
         } else {
-            return response()->json(['error' => 'Unsupported provider'], 400);
+            return response()->json(['success' => false, 'message' => 'Unsupported provider'], 400);
         }
 
         if (!$userData || empty($userData['email'])) {
-            return response()->json(['error' => 'Invalid social token'], 400);
+            return response()->json(['success' => false, 'message' => 'Invalid social token'], 400);
         }
 
         // ----------------- Check existing user -----------------
@@ -53,7 +53,8 @@ class SocialLoginController extends Controller
 
             if ($existingUser->provider !== $provider) {
                 return response()->json([
-                    'error' => 'Account already exists. Please login with your original method.'
+                    'success' => false,
+                    'message' => 'Account already exists. Please login with your original method.',
                 ], 400);
             }
 
