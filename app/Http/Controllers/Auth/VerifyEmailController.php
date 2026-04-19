@@ -21,19 +21,25 @@ class VerifyEmailController
         $user = User::where('email_verification_token', $token)->firstOrFail();
 
         if ($user->email_verified_at) {
-            return response()->json([
-                'message' => 'Email already verified'
+            return response()->view('emails.verified', [
+                'status' => 'already',
+                'name' => $user->name,
+                'deepLink' => null,
             ]);
         }
 
         $user->update([
             'email_verified_at' => now(),
-            'email_verification_token' => null
+            'email_verification_token' => null,
         ]);
+
+        $plain = $user->createToken('mobile')->plainTextToken;
+        $deepLink = 'habimate://verified?token='.rawurlencode($plain);
 
         return response()->view('emails.verified', [
             'status' => 'success',
-            'name' => $user->name
+            'name' => $user->name,
+            'deepLink' => $deepLink,
         ]);
     }
 

@@ -20,12 +20,25 @@
                 <span style="font-size:36px;color:#ffffff;">✓</span>
               </div>
 
-              @if (($status ?? '') === 'success')
+              @if (($status ?? '') === 'success' && !empty($deepLink ?? null))
                 <h1 style="margin:0 0 12px;font-size:26px;font-weight:800;color:#f8fafc;letter-spacing:-0.02em;line-height:1.2;">
                   You’re verified, {{ $name }}!
                 </h1>
                 <p style="margin:0;font-size:16px;line-height:1.6;color:#94a3b8;">
-                  Your email is confirmed. Open the HabiMate app and settle in—your house is ready when you are.
+                  Opening the app… If nothing happens, tap the button below.
+                </p>
+                <p style="margin:28px 0 0;">
+                  <a href="{{ $deepLink }}" style="display:inline-block;padding:14px 28px;border-radius:14px;background:linear-gradient(135deg,#FF6A6A,#E15555);color:#ffffff;font-size:16px;font-weight:800;text-decoration:none;box-shadow:0 12px 28px rgba(255,106,106,0.35);">Open HabiMate</a>
+                </p>
+                <script>
+                  (function(){ try { window.location.href = @json($deepLink); } catch(e) {} })();
+                </script>
+              @elseif (($status ?? '') === 'success')
+                <h1 style="margin:0 0 12px;font-size:26px;font-weight:800;color:#f8fafc;letter-spacing:-0.02em;line-height:1.2;">
+                  You’re verified, {{ $name }}!
+                </h1>
+                <p style="margin:0;font-size:16px;line-height:1.6;color:#94a3b8;">
+                  Your email is confirmed. Open the HabiMate app and sign in.
                 </p>
               @else
                 <h1 style="margin:0 0 12px;font-size:24px;font-weight:800;color:#f8fafc;letter-spacing:-0.02em;">

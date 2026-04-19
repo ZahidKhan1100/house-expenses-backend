@@ -36,17 +36,30 @@ class AuthController extends Controller
 
     public function checkEmailVerified(Request $request)
     {
-        // Validate the email input
         $request->validate([
             'email' => 'required|email',
         ]);
 
-        // Find user by email
         $user = User::where('email', $request->email)->first();
 
-        // Return JSON response
+        if (! $user || ! $user->hasVerifiedEmail()) {
+            return response()->json([
+                'email_verified' => false,
+            ]);
+        }
+
+        $token = $user->createToken('mobile')->plainTextToken;
+
+        $house = null;
+        if ($user->house_id) {
+            $house = $user->house()->with(['categories'])->first();
+        }
+
         return response()->json([
-            'email_verified' => $user?->hasVerifiedEmail() ?? false,
+            'email_verified' => true,
+            'token' => $token,
+            'user' => $user,
+            'house' => $house,
         ]);
     }
 
