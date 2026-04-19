@@ -78,10 +78,22 @@ class ExpoPushService
             $ticketList = isset($tickets['status']) ? [$tickets] : $tickets;
 
             foreach ($ticketList as $ticket) {
-                if (($ticket['status'] ?? '') === 'error') {
+                $status = $ticket['status'] ?? '';
+
+                if ($status === 'ok') {
+                    // Receipt ID is for https://exp.host/--/api/v2/push/getReceipts — confirms FCM/APNs handoff.
+                    Log::info('Expo push ticket ok (queued for delivery)', [
+                        'receipt_id' => $ticket['id'] ?? null,
+                    ]);
+
+                    continue;
+                }
+
+                if ($status === 'error') {
                     Log::warning('Expo push ticket error', [
                         'message' => $ticket['message'] ?? null,
                         'details' => $ticket['details'] ?? null,
+                        'full' => $ticket,
                     ]);
                 }
             }

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\UserPushToken;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class PushTokenController extends Controller
 {
@@ -36,6 +37,11 @@ class PushTokenController extends Controller
         // Keep legacy column as “last registered device” for older clients / debugging
         $user->expo_push_token = $validated['token'];
         $user->save();
+
+        Log::info('Expo push token stored', [
+            'user_id' => $user->id,
+            'platform' => $platform,
+        ]);
 
         return response()->json([
             'success' => true,

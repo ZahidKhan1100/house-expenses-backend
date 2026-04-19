@@ -127,11 +127,13 @@ class ReceiptScanController extends Controller
         ];
 
         try {
-            $preferred = trim((string) (config('houseexpenses.receipt_scan.gemini_model') ?: 'gemini-1.5-flash'));
+            $preferred = trim((string) (config('houseexpenses.receipt_scan.gemini_model') ?: 'gemini-2.5-flash-lite'));
             $modelsToTry = array_values(array_unique(array_filter([
                 $preferred !== '' ? $preferred : null,
-                'gemini-1.5-flash',
+                'gemini-2.5-flash-lite',
+                'gemini-2.5-flash',
                 'gemini-2.0-flash',
+                'gemini-1.5-flash-8b',
             ])));
 
             $resp = null;
@@ -142,18 +144,27 @@ class ReceiptScanController extends Controller
                 }
 
                 $errMsg = (string) ($resp->json('error.message') ?? '');
-                $retry = $resp->status() === 404
-                    || str_contains(strtolower($errMsg), 'not found')
-                    || str_contains(strtolower($errMsg), 'not supported')
-                    || str_contains(strtolower($errMsg), 'is not found');
+                $status = $resp->status();
+                $lower = strtolower($errMsg);
+
+                // Try next model: wrong/retired id (404), or quota on one model (429), or overload.
+                $tryNextModel = $status === 404
+                    || $status === 429
+                    || $status === 503
+                    || str_contains($lower, 'not found')
+                    || str_contains($lower, 'not supported')
+                    || str_contains($lower, 'is not found')
+                    || str_contains($lower, 'quota')
+                    || str_contains($lower, 'resource_exhausted')
+                    || str_contains($lower, 'exceeded your current quota');
 
                 Log::warning('Gemini receipt extract HTTP error', [
                     'model' => $model,
-                    'status' => $resp->status(),
+                    'status' => $status,
                     'body' => $resp->body(),
                 ]);
 
-                if (! $retry) {
+                if (! $tryNextModel) {
                     break;
                 }
             }
