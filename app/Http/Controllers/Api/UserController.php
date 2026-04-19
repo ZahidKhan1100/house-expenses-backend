@@ -32,6 +32,7 @@ class UserController extends Controller
                 'name' => $user->house->name,
                 'currency' => $user->house->currency ?? '$',
                 'code' => $user->house->code,
+                'guest_day_weight_percent' => (float) ($user->house->guest_day_weight_percent ?? 100.0),
             ] : null,
         ]);
     }

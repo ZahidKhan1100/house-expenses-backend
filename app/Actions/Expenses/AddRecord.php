@@ -116,6 +116,7 @@ class AddRecord
             DB::afterCommit(function () use ($user, $record, $includedMates, $expense) {
                 $house = $user->house;
                 $currency = $house?->currency ?? '$';
+                $gwp = (float) ($house?->guest_day_weight_percent ?? 100.0);
 
                 $fresh = Record::find($record->id);
 
@@ -124,13 +125,14 @@ class AddRecord
                     $excluded = is_array($fresh->excluded_days_by_user ?? null) ? $fresh->excluded_days_by_user : [];
                     $guestExtra = is_array($fresh->guest_extra_days_by_user ?? null) ? $fresh->guest_extra_days_by_user : [];
                     $billDays = (int) ($fresh->bill_period_days ?? 0);
-                    $weighted = array_map(static function ($m) use ($excluded, $guestExtra, $billDays) {
+                    $weighted = array_map(static function ($m) use ($excluded, $guestExtra, $billDays, $gwp) {
                         $id = (int) ($m['id'] ?? 0);
                         $ex = (int) ($excluded[$id] ?? 0);
                         if ($ex < 0) $ex = 0;
                         $gx = (int) ($guestExtra[$id] ?? 0);
                         if ($gx < 0) $gx = 0;
-                        $eff = max(0, $billDays - $ex) + $gx;
+                        $guestPart = $gx * ($gwp / 100.0);
+                        $eff = max(0, $billDays - $ex) + $guestPart;
                         return ['id' => $id, 'weight' => $eff];
                     }, $includedMates);
                     $shares = ExpenseSplit::sharePerUserWeighted((float) $fresh->amount, $weighted);

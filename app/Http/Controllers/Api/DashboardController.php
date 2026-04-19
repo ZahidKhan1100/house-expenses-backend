@@ -25,6 +25,7 @@ class DashboardController extends Controller
             'house' => $house ? [
                 'id' => $house->id,
                 'name' => $house->name,
+                'guest_day_weight_percent' => (float) ($house->guest_day_weight_percent ?? 100.0),
             ] : null,
             'total_spent' => $dashboardData['total_spent'],
             'currency' => $dashboardData['currency'],

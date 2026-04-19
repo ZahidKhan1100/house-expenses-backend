@@ -59,7 +59,23 @@ class HouseController extends Controller
 
         $this->authorize('update', $house); // optional: ensure user can edit
 
-        $house->update($request->only(['name', 'currency']));
+        $data = $request->validate([
+            'name' => 'sometimes|string|max:255',
+            'currency' => 'sometimes|string|max:10',
+            'guest_day_weight_percent' => 'sometimes|numeric|min:0|max:500',
+        ]);
+
+        if (array_key_exists('guest_day_weight_percent', $data) && $request->user()->role !== 'admin') {
+            return response()->json([
+                'message' => 'Only the house admin can change guest billing settings.',
+            ], 403);
+        }
+
+        if (isset($data['guest_day_weight_percent'])) {
+            $data['guest_day_weight_percent'] = round((float) $data['guest_day_weight_percent'], 2);
+        }
+
+        $house->update($data);
         return response()->json($house);
     }
 

@@ -4,6 +4,7 @@
 
 namespace App\Services;
 
+use App\Models\House;
 use Illuminate\Support\Facades\Cache;
 
 class BalanceCalculator
@@ -13,9 +14,11 @@ class BalanceCalculator
      */
     public function calculateWithCache(int $houseId, string $month, $records, array $mateIds): array
     {
+        $guestDayWeightPercent = (float) (House::query()->whereKey($houseId)->value('guest_day_weight_percent') ?? 100.0);
+
         $cfg = config('houseexpenses.split_balance_cache', []);
         if (empty($cfg['enabled'])) {
-            return $this->calculate($records, $mateIds);
+            return $this->calculate($records, $mateIds, $guestDayWeightPercent);
         }
 
         $col = collect($records);
@@ -31,25 +34,30 @@ class BalanceCalculator
         $ids = $col->pluck('id')->filter()->sort()->values()->implode(',');
 
         $key = sprintf(
-            'split_balance:v1:%d:%s:%d:%s:%s',
+            'split_balance:v1:%d:%s:%d:%s:%s:%s',
             $houseId,
             $month,
             $count,
             md5((string) $maxTs),
-            md5($ids)
+            md5($ids),
+            md5((string) $guestDayWeightPercent)
         );
 
         $ttl = (int) ($cfg['ttl'] ?? 3600);
         $storeName = $cfg['store'] ?? null;
         $cache = $storeName ? Cache::store($storeName) : Cache::store();
 
-        return $cache->remember($key, max(60, $ttl), fn () => $this->calculate($records, $mateIds));
+        return $cache->remember($key, max(60, $ttl), fn () => $this->calculate($records, $mateIds, $guestDayWeightPercent));
     }
 
-    public function calculate($records, array $mateIds): array
+    /**
+     * @param  float  $guestDayWeightPercent  Each guest night counts as (percent / 100) of one full bill day (100 = legacy 1:1).
+     */
+    public function calculate($records, array $mateIds, float $guestDayWeightPercent = 100.0): array
     {
         $mateIds = array_map(static fn ($id) => (int) $id, $mateIds);
         $balance = array_fill_keys($mateIds, 0.0);
+        $gwp = $guestDayWeightPercent >= 0 ? $guestDayWeightPercent : 0.0;
 
         foreach ($records as $rec) {
 
@@ -81,13 +89,14 @@ class BalanceCalculator
                 $excluded = is_array($rec->excluded_days_by_user ?? null) ? $rec->excluded_days_by_user : [];
                 $guestExtra = is_array($rec->guest_extra_days_by_user ?? null) ? $rec->guest_extra_days_by_user : [];
                 $billDays = (int) ($rec->bill_period_days ?? 0);
-                $weighted = array_map(static function ($m) use ($excluded, $guestExtra, $billDays) {
+                $weighted = array_map(static function ($m) use ($excluded, $guestExtra, $billDays, $gwp) {
                     $id = (int) ($m['id'] ?? 0);
                     $ex = (int) ($excluded[$id] ?? 0);
                     if ($ex < 0) $ex = 0;
                     $gx = (int) ($guestExtra[$id] ?? 0);
                     if ($gx < 0) $gx = 0;
-                    $eff = max(0, $billDays - $ex) + $gx;
+                    $guestPart = $gx * ($gwp / 100.0);
+                    $eff = max(0, $billDays - $ex) + $guestPart;
                     return ['id' => $id, 'weight' => $eff];
                 }, $included);
                 $shares = ExpenseSplit::sharePerUserWeighted($total, $weighted);
