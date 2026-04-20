@@ -8,10 +8,8 @@ use App\Models\House;
 use Google\AccessToken\Verify;
 use GuzzleHttp\Client as GuzzleClient;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 use Firebase\JWT\JWT;
 use Firebase\JWT\JWK;
-use App\Services\KarmaService;
 use Illuminate\Validation\ValidationException;
 
 class SocialLoginController extends Controller
@@ -120,36 +118,8 @@ class SocialLoginController extends Controller
                     'status' => 'approved',
                     'active_mode' => 'house',
                 ]);
-
-            } else {
-                // ✅ Only create house if user has NONE
-                $house = House::create([
-                    'name' => $user->name . "'s House",
-                    'code' => strtoupper(Str::random(6)),
-                    'admin_id' => $user->id,
-                    'currency' => '$',
-                ]);
-
-                $user->update([
-                    'house_id' => $house->id,
-                    'role' => 'admin',
-                    'status' => 'admin',
-                    'active_mode' => 'house',
-                ]);
-
-                // Karma: House Starter +100 (best-effort)
-                try {
-                    app(KarmaService::class)->add($user, 100, 'house_starter');
-                } catch (\Throwable $e) {
-                }
-
-                foreach ([
-                    ['name' => 'Grocery', 'icon' => 'shopping-basket'],
-                    ['name' => 'Rent', 'icon' => 'home'],
-                ] as $cat) {
-                    $house->categories()->create($cat);
-                }
             }
+            // No house_code: leave user without a house — client shows join vs create (e.g. choose-house).
         }
 
         // ----------------- Generate Token -----------------
