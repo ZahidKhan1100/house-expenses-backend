@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Settlement;
 use App\Models\User;
 use App\Services\ExpenseSplit;
+use App\Services\ExpoPushService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -104,6 +105,38 @@ class BuybackController extends Controller
         $sharesPayload = collect($sharesByUserId)
             ->mapWithKeys(fn ($v, $uid) => [(string) $uid => round((float) $v, 2)])
             ->all();
+
+        // Push notify participants (best-effort).
+        try {
+            $push = app(ExpoPushService::class);
+            $buyerName = (string) ($buyer->name ?? 'Someone');
+            $houseCurrency = $buyer->house?->currency ?? '$';
+            $title = (string) ($validated['title'] ?? 'Stock buy-back');
+
+            $toNotify = User::query()
+                ->where('house_id', (int) $buyer->house_id)
+                ->whereIn('id', $participants)
+                ->with('pushTokens')
+                ->get(['id', 'name', 'expo_push_token']);
+
+            foreach ($toNotify as $mate) {
+                if ($mate->allExpoPushTokens()->isEmpty()) continue;
+                $push->sendToUserDevices(
+                    $mate,
+                    'Stock buy-back added',
+                    $buyerName . ' added a buy-back: ' . $title . ' · ' . $houseCurrency . number_format($amount, 2) . '. Tap to view.',
+                    [
+                        'type' => 'stock_buyback',
+                        'month' => (string) $month,
+                        'buyer_user_id' => (int) $buyer->id,
+                        'title' => $title,
+                        'amount' => $amount,
+                    ],
+                );
+            }
+        } catch (\Throwable) {
+            // ignore
+        }
 
         return response()->json([
             'success' => true,
