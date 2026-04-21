@@ -6,6 +6,7 @@ use App\Events\BillCreated;
 use App\Models\Record;
 use App\Models\User;
 use App\Models\Expense;
+use App\Services\ExpenseAuditLogger;
 use App\Services\ExpenseSplit;
 use App\Services\ExpoPushService;
 use Carbon\Carbon;
@@ -111,6 +112,11 @@ class AddRecord
             ]);
 
             $record = $record->load(['category', 'expense']); // eager load
+
+            try {
+                ExpenseAuditLogger::created($user, $record);
+            } catch (\Throwable) {
+            }
 
             // Broadcast + push AFTER commit for consistent cross-device updates
             DB::afterCommit(function () use ($user, $record, $includedMates, $expense) {

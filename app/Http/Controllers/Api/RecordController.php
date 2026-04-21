@@ -8,6 +8,7 @@ use App\Http\Requests\UpdateRecordRequest;
 use App\Actions\Expenses\AddRecord;
 use App\Actions\Expenses\UpdateRecord;
 use App\Models\Record;
+use App\Services\ExpenseAuditLogger;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class RecordController extends Controller
@@ -31,7 +32,14 @@ class RecordController extends Controller
     public function destroy(Record $record)
     {
         $this->authorize('delete', $record);
+        $snapshot = ExpenseAuditLogger::snapshotForDelete($record);
+
         $record->delete();
+
+        try {
+            ExpenseAuditLogger::deleted(auth()->user(), $snapshot);
+        } catch (\Throwable) {
+        }
 
         return response()->json(['message' => 'Record deleted']);
     }

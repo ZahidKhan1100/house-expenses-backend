@@ -4,6 +4,8 @@ namespace App\Actions\Expenses;
 
 use App\Models\Record;
 use App\Models\User;
+use App\Services\BalanceCalculator;
+use App\Services\SettlementService;
 
 class GetDashboard
 {
@@ -19,6 +21,7 @@ class GetDashboard
                 'mates' => [],
                 'month' => now()->format('Y-m'),
                 'latest_bill' => null,
+                'split_balance' => null,
             ];
         }
 
@@ -94,6 +97,41 @@ class GetDashboard
             ];
         }
 
+        $splitBalancePayload = null;
+        if ($records->isNotEmpty()) {
+            $matesMap = [];
+            foreach ($records as $rec) {
+                $matesMap[(int) $rec->paid_by] = true;
+                $included = is_array($rec->included_mates) ? $rec->included_mates : [];
+                foreach ($included as $mate) {
+                    $id = (int) ($mate['id'] ?? 0);
+                    if ($id > 0) {
+                        $matesMap[$id] = true;
+                    }
+                }
+            }
+            $mateIds = array_keys($matesMap);
+            if (!empty($mateIds)) {
+                $balance = app(BalanceCalculator::class)->calculateWithCache(
+                    (int) $house->id,
+                    $month,
+                    $records,
+                    $mateIds,
+                );
+                $balance = app(SettlementService::class)->applyPaidSettlementsToNetBalances(
+                    (int) $house->id,
+                    $month,
+                    $balance,
+                );
+                $uid = (int) $user->id;
+                $net = round((float) ($balance[$uid] ?? 0.0), 2);
+                $splitBalancePayload = [
+                    'month' => $month,
+                    'net' => $net,
+                ];
+            }
+        }
+
         return [
             'total_spent' => round($totalSpent, 2),
             'currency' => $house->currency ?? '$',
@@ -101,6 +139,7 @@ class GetDashboard
             'mates' => $mates,
             'month' => $month,
             'latest_bill' => $latestPayload,
+            'split_balance' => $splitBalancePayload,
         ];
     }
 }

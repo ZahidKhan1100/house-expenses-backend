@@ -26,6 +26,7 @@ use App\Http\Controllers\Api\BuybackController;
 use App\Http\Controllers\Api\HouseCalendarController;
 use App\Http\Controllers\Api\RecordController;
 use App\Http\Controllers\Api\DashboardController;
+use App\Http\Controllers\Api\ExpenseAuditController;
 use App\Http\Controllers\Api\CategoryController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -179,6 +180,9 @@ Route::prefix('v1')->group(function () {
 
         // Dashboard
         Route::get('/dashboard', [DashboardController::class, 'index']);
+
+        // Expense audit trail (house-scoped)
+        Route::get('/expense-audit', [ExpenseAuditController::class, 'index']);
 
         // Gamification
         Route::get('/leaderboard', [LeaderboardController::class, 'index']);

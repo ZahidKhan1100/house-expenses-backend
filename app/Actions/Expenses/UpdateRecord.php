@@ -3,6 +3,7 @@
 namespace App\Actions\Expenses;
 
 use App\Models\Record;
+use App\Services\ExpenseAuditLogger;
 use App\Models\User;
 use App\Models\Expense;
 use Carbon\Carbon;
@@ -13,6 +14,8 @@ class UpdateRecord
     public function handle(User $user, Record $record, array $data): Record
     {
         return DB::transaction(function () use ($user, $record, $data) {
+
+            $beforeSnapshot = ExpenseAuditLogger::snapshot($record);
 
             // ✅ 1. Resolve month (from request OR existing expense)
             $month = $data['month']
@@ -130,7 +133,14 @@ class UpdateRecord
                 }
             }
 
-            return $record->load('category');
+            $fresh = $record->load('category');
+
+            try {
+                ExpenseAuditLogger::updated($user, $fresh, $beforeSnapshot);
+            } catch (\Throwable) {
+            }
+
+            return $fresh;
         });
     }
 }

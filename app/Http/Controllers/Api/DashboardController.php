@@ -32,6 +32,7 @@ class DashboardController extends Controller
             'category_expenses' => $dashboardData['categories'],
             'mates' => $dashboardData['mates'],
             'latest_bill' => $dashboardData['latest_bill'] ?? null,
+            'split_balance' => $dashboardData['split_balance'] ?? null,
         ]);
     }
 }
