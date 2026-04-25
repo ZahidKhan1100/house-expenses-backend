@@ -15,3 +15,7 @@ Schedule::call(function () {
     } catch (\Throwable $e) {
     }
 })->daily();
+
+Schedule::command('backup:clean')->dailyAt('01:15');
+
+Schedule::command('backup:run --only-db')->dailyAt('02:00');

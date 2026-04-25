@@ -23,7 +23,7 @@ class LeaderboardLeaderNotifier
 
         $top = User::query()
             ->where('house_id', $house->id)
-            ->whereIn('status', ['approved', 'admin'])
+            ->whereIn('status', User::HOUSE_MEMBER_STATUSES)
             ->orderByDesc('karma_balance')
             ->orderBy('created_at')
             ->first(['id', 'name']);
@@ -54,7 +54,7 @@ class LeaderboardLeaderNotifier
 
         $mates = User::query()
             ->where('house_id', $house->id)
-            ->whereIn('status', ['approved', 'admin'])
+            ->whereIn('status', User::HOUSE_MEMBER_STATUSES)
             ->where('id', '!=', $newId)
             ->with('pushTokens')
             ->get(['id', 'expo_push_token']);

@@ -3,14 +3,14 @@
 namespace App\Http\Controllers\Api;
 
 use App\Actions\House\JoinHouseByQRCode;
-use App\Http\Controllers\Controller;
 use App\Actions\Houses\CreateHouse;
 use App\Actions\Houses\JoinHouse;
+use App\Http\Controllers\Controller;
 use App\Http\Requests\CreateHouseRequest;
+use App\Models\House;
 use App\Models\Settlement;
 use App\Models\User;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
-use App\Models\House;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -19,15 +19,18 @@ use Illuminate\Support\Str;
 class HouseController extends Controller
 {
     use AuthorizesRequests;
+
     public function create(CreateHouseRequest $request, CreateHouse $action)
     {
         $house = $action->handle($request->validated(), $request->user());
+
         return response()->json($house);
     }
 
     public function join(Request $request, JoinHouse $action)
     {
         $house = $action->handle($request->code, $request->user());
+
         return response()->json($house);
     }
 
@@ -40,12 +43,12 @@ class HouseController extends Controller
             'id' => $house->id,
             'name' => $house->name,
             'currency' => $house->currency ?? '$',
-            'mates' => $house->mates->map(fn($mate) => [
+            'mates' => $house->mates->map(fn ($mate) => [
                 'id' => $mate->id,
                 'name' => $mate->name,
                 'role' => $mate->role,
             ]),
-            'categories' => $house->categories->map(fn($cat) => [
+            'categories' => $house->categories->map(fn ($cat) => [
                 'id' => $cat->id,
                 'name' => $cat->name,
                 'icon' => $cat->icon,
@@ -76,6 +79,7 @@ class HouseController extends Controller
         }
 
         $house->update($data);
+
         return response()->json($house);
     }
 
@@ -91,7 +95,7 @@ class HouseController extends Controller
 
         return response()->json([
             'message' => 'Joined house successfully',
-            'house' => $house
+            'house' => $house,
         ]);
     }
 
@@ -100,7 +104,7 @@ class HouseController extends Controller
         $user = $request->user();
         $house = $user->house; // assuming user has house() relation
 
-        if (!$house) {
+        if (! $house) {
             return response()->json([
                 'house' => null,
             ]);
@@ -111,7 +115,7 @@ class HouseController extends Controller
                 'id' => $house->id,
                 'name' => $house->name,
                 'house_code' => $house->code,
-            ]
+            ],
         ]);
     }
 
@@ -119,7 +123,7 @@ class HouseController extends Controller
     {
         $user = Auth::user();
 
-        if (!$user->house_id) {
+        if (! $user->house_id) {
             return response()->json(['success' => false, 'message' => 'Not in any house'], 400);
         }
 
@@ -133,14 +137,14 @@ class HouseController extends Controller
         return DB::transaction(function () use ($user) {
             $house = $user->house;
 
-            if (!$house) {
+            if (! $house) {
                 return response()->json(['success' => false, 'message' => 'House not found'], 404);
             }
 
             // Find the oldest remaining approved/admin mate (excluding current user)
             $nextUser = User::where('house_id', $house->id)
                 ->where('id', '!=', $user->id)
-                ->whereIn('status', ['approved', 'admin'])
+                ->whereIn('status', User::HOUSE_MEMBER_STATUSES)
                 ->orderBy('created_at')
                 ->first();
 
@@ -197,7 +201,7 @@ class HouseController extends Controller
 
                 $nextUser = User::where('house_id', $house->id)
                     ->where('id', '!=', $user->id)
-                    ->whereIn('status', ['approved', 'admin'])
+                    ->whereIn('status', User::HOUSE_MEMBER_STATUSES)
                     ->orderBy('created_at')
                     ->first();
 
@@ -230,7 +234,7 @@ class HouseController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Account deleted successfully'
+                'message' => 'Your account has been deactivated. Sign up again with the same email to recover your house and data, or contact support for help.',
             ]);
         });
     }
@@ -241,13 +245,13 @@ class HouseController extends Controller
 
         if ($user->house_id) {
             return response()->json([
-                'message' => 'User already belongs to a house.'
+                'message' => 'User already belongs to a house.',
             ], 400);
         }
 
         // Create the new house
         $house = House::create([
-            'name' => $user->name . "'s House",
+            'name' => $user->name."'s House",
             'code' => strtoupper(Str::random(6)),
             'admin_id' => $user->id,
             'currency' => '$', // default, can make dynamic later
@@ -272,7 +276,7 @@ class HouseController extends Controller
 
         return response()->json([
             'message' => 'House created successfully',
-            'house' => $house
+            'house' => $house,
         ], 201);
     }
 
@@ -285,7 +289,7 @@ class HouseController extends Controller
 
         $house = House::where('code', $request->house_code)->first();
 
-        if (!$house) {
+        if (! $house) {
             return response()->json(['message' => 'House not found'], 404);
         }
 

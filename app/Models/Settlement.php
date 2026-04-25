@@ -30,6 +30,11 @@ class Settlement extends Model
         return $this->belongsTo(Expense::class);
     }
 
+    public function house()
+    {
+        return $this->belongsTo(House::class);
+    }
+
     public function fromUser()
     {
         return $this->belongsTo(User::class, 'from_user_id');

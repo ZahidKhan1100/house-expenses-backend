@@ -92,8 +92,9 @@ class ExpoPushService
                 if ($status === 'error') {
                     Log::warning('Expo push ticket error', [
                         'message' => $ticket['message'] ?? null,
-                        'details' => $ticket['details'] ?? null,
-                        'full' => $ticket,
+                        'error_code' => is_array($ticket['details'] ?? null)
+                            ? ($ticket['details']['error'] ?? null)
+                            : null,
                     ]);
                 }
             }

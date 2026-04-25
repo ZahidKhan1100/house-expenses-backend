@@ -4,7 +4,9 @@ namespace App\Providers;
 
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
 use Illuminate\Support\Facades\Gate;
+use App\Models\House;
 use App\Models\Record;
+use App\Policies\HousePolicy;
 use App\Policies\RecordPolicy;
 
 class AuthServiceProvider extends ServiceProvider
@@ -15,6 +17,7 @@ class AuthServiceProvider extends ServiceProvider
      * @var array<class-string, class-string>
      */
     protected $policies = [
+        House::class => HousePolicy::class,
         Record::class => RecordPolicy::class,
     ];
 
@@ -25,9 +28,12 @@ class AuthServiceProvider extends ServiceProvider
     {
         $this->registerPolicies();
 
-        // Optional: global admin override
-        Gate::before(function ($user, $ability) {
-            return $user->role === 'admin' ? true : null;
+        Gate::before(function ($user, string $ability) {
+            if ($user instanceof \App\Models\Admin && $user->hasRole('super-admin')) {
+                return true;
+            }
+
+            return null;
         });
     }
 }

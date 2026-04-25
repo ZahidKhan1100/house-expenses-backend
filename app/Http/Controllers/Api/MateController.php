@@ -30,7 +30,7 @@ class MateController extends Controller
 
         $topLegendId = User::query()
             ->where('house_id', $house->id)
-            ->whereIn('status', ['approved', 'admin'])
+            ->whereIn('status', User::HOUSE_MEMBER_STATUSES)
             ->orderByDesc('karma_balance')
             ->orderBy('created_at')
             ->value('id');
@@ -194,7 +194,7 @@ class MateController extends Controller
             if ($mate->role === 'admin' || (int) $house->admin_id === (int) $mate->id) {
                 $nextUser = User::where('house_id', $house->id)
                     ->where('id', '!=', $mate->id)
-                    ->whereIn('status', ['approved', 'admin'])
+                    ->whereIn('status', User::HOUSE_MEMBER_STATUSES)
                     ->first();
 
                 if ($nextUser) {

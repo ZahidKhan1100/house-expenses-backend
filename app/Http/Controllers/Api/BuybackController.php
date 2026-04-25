@@ -49,7 +49,7 @@ class BuybackController extends Controller
         }
 
         $mateIds = User::where('house_id', $buyer->house_id)
-            ->whereIn('status', ['approved', 'admin'])
+            ->whereIn('status', User::HOUSE_MEMBER_STATUSES)
             ->pluck('id')
             ->map(fn ($id) => (int) $id)
             ->values()

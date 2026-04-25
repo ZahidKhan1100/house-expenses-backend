@@ -61,10 +61,10 @@ class SettlementService
             ->where('month', $month)
             ->first();
 
-        \Log::info('Expense check', [
+        \Log::info('Settlement generate expense lookup', [
             'house_id' => $houseId,
             'month' => $month,
-            'expense' => $expense
+            'expense_id' => $expense?->id,
         ]);
 
         if (!$expense) {

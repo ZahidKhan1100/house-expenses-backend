@@ -65,7 +65,7 @@ class HouseCalendarService
 
         $mates = User::query()
             ->where('house_id', $houseId)
-            ->whereIn('status', ['approved', 'admin'])
+            ->whereIn('status', User::HOUSE_MEMBER_STATUSES)
             ->orderBy('name')
             ->get(['id', 'name']);
 

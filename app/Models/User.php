@@ -12,6 +12,13 @@ class User extends Authenticatable implements MustVerifyEmail
 {
     use HasApiTokens, Notifiable, SoftDeletes;
 
+    /**
+     * House members for shared living features (karma, leaderboard, calendar, wall, etc.).
+     * QR / instant joins use status {@see JoinHouseByQRCode} `active` — not `approved`.
+     *
+     * @var list<string>
+     */
+    public const HOUSE_MEMBER_STATUSES = ['admin', 'approved', 'active'];
 
     protected $fillable = [
         'name',
@@ -85,6 +92,11 @@ class User extends Authenticatable implements MustVerifyEmail
         }
 
         return $tokens->filter()->unique()->values();
+    }
+
+    public function canBeImpersonated(): bool
+    {
+        return ! $this->trashed();
     }
 
 }

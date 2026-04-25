@@ -2,8 +2,9 @@
 
 namespace App\Actions\Auth;
 
-use App\Models\User;
 use App\Models\House;
+use App\Models\User;
+use App\Services\KarmaService;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -48,7 +49,7 @@ class RegisterUser
         }
 
         // Founder is permanent: first 10,000 users by id.
-        if ((int) $user->id <= 10000 && !$user->is_founder) {
+        if ((int) $user->id <= 10000 && ! $user->is_founder) {
             $user->is_founder = true;
             $user->save();
         }
@@ -57,12 +58,12 @@ class RegisterUser
         // 📧 SEND VERIFICATION EMAIL
         // =====================================================
         $verificationUrl = route('verify.email', [
-            'token' => $user->email_verification_token
+            'token' => $user->email_verification_token,
         ]);
 
         $html = view('emails.verify-email', [
             'name' => $user->name,
-            'verificationUrl' => $verificationUrl
+            'verificationUrl' => $verificationUrl,
         ])->render();
 
         sendMailgunEmail($user->email, 'Verify Your Email', $html);
@@ -72,10 +73,10 @@ class RegisterUser
         // =====================================================
         $houseCode = $data['houseCode'] ?? $data['house_code'] ?? null;
 
-        if (!empty($houseCode)) {
+        if (! empty($houseCode)) {
 
             $house = House::where('code', strtoupper($houseCode))->first();
-            if (!$house) {
+            if (! $house) {
                 throw ValidationException::withMessages([
                     'house_code' => ['That house code isn’t valid. Double-check it or scan the QR again.'],
                 ]);
@@ -100,10 +101,39 @@ class RegisterUser
         }
 
         // =====================================================
+        //  2b. RECOVER SOFT-DELETED HOUSE (SOLO DELETE / LAST MEMBER LEFT)
+        // =====================================================
+        $trashedHouse = House::onlyTrashed()
+            ->where('admin_id', $user->id)
+            ->orderByDesc('deleted_at')
+            ->first();
+
+        if ($trashedHouse) {
+            $trashedHouse->restore();
+
+            $user->update([
+                'house_id' => $trashedHouse->id,
+                'role' => 'admin',
+                'status' => 'admin',
+                'active_mode' => 'house',
+            ]);
+
+            $token = $user->createToken('auth_token')->plainTextToken;
+
+            return [
+                'success' => true,
+                'mode' => 'house',
+                'token' => $token,
+                'user' => $user->fresh(),
+                'email_verified' => false,
+            ];
+        }
+
+        // =====================================================
         //  3. CREATE NEW HOUSE
         // =====================================================
         $house = House::create([
-            'name' => $user->name . "'s House",
+            'name' => $user->name."'s House",
             'code' => strtoupper(Str::random(6)),
             'admin_id' => $user->id,
             'currency' => '$',
@@ -118,7 +148,7 @@ class RegisterUser
 
         // Karma: House Starter +100 (best-effort)
         try {
-            app(\App\Services\KarmaService::class)->add($user, 100, 'house_starter');
+            app(KarmaService::class)->add($user, 100, 'house_starter');
         } catch (\Throwable $e) {
         }
 

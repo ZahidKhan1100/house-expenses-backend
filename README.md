@@ -1,59 +1,46 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# House Expenses API
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+## Filament staff admin (`/admin`)
 
-## About Laravel
+Internal staff use a **separate** `admins` table and the **`admin`** session guard (not app `users`). The panel is Filament v4 with **Spatie Permission** and **Filament Shield** for roles and policies.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+### First-time setup
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+1. Copy `.env.example` to `.env` and configure the database.
+2. Set staff credentials for the seeder:
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+   - `ADMIN_EMAIL`
+   - `ADMIN_PASSWORD`
+   - Optional: `ADMIN_NAME`
 
-## Learning Laravel
+3. Run migrations and seed:
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+   ```bash
+   php artisan migrate --force
+   php artisan db:seed --force
+   ```
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+4. Open `/admin` and sign in with `ADMIN_EMAIL` / `ADMIN_PASSWORD`.
 
-## Laravel Sponsors
+Shield permissions are generated from Filament entities; run `php artisan shield:generate` (or your project’s Shield workflow) after adding resources if you need fresh permission names.
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+### Roles
 
-### Premium Partners
+- **super-admin** — full access (also bypasses permission checks via `Gate::before` in `AuthServiceProvider`).
+- **admin** / **editor** — grant resource access through Shield when editing roles under **System** (or assign roles to admins in **Admin** resource).
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+### Reset an admin password
 
-## Contributing
+Use **Admins** in the panel (if you can sign in), or from Tinker:
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+```bash
+php artisan tinker
+>>> \App\Models\Admin::where('email', 'you@example.com')->first()->update(['password' => 'new-secret']);
+```
 
-## Code of Conduct
+Use a hashed password in production (e.g. `Hash::make('...')`).
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+### Adding roles or permissions
 
-## Security Vulnerabilities
-
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
-
-## License
-
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+1. Use Filament Shield’s **Roles** UI (guard: `admin`), or
+2. Extend `Database\Seeders\AdminSeeder` for new base roles, then assign them on the **Admin** resource.

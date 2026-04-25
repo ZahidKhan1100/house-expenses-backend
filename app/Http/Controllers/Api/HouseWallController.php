@@ -669,7 +669,7 @@ class HouseWallController extends Controller
                     ->where('house_member_statuses.house_id', '=', $user->house_id);
             })
             ->where('users.house_id', $user->house_id)
-            ->whereIn('users.status', ['approved', 'admin'])
+            ->whereIn('users.status', User::HOUSE_MEMBER_STATUSES)
             ->orderBy('users.created_at')
             ->get([
                 'users.id as user_id',

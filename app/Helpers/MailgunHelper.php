@@ -29,11 +29,17 @@ if (!function_exists('sendMailgunEmail')) {
         curl_close($ch);
 
         if ($error) {
-            Log::error("Mailgun cURL error: {$error}");
+            Log::error('Mailgun cURL transport error', ['curl_error' => $error]);
+
             return false;
         }
 
-        Log::info("Mailgun response: {$response}");
+        $decoded = is_string($response) ? json_decode($response, true) : null;
+        Log::info('Mailgun send finished', [
+            'has_id' => is_array($decoded) && ! empty($decoded['id']),
+            'message' => is_array($decoded) ? ($decoded['message'] ?? null) : null,
+        ]);
+
         return true;
     }
 }

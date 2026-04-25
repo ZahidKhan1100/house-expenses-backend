@@ -18,7 +18,7 @@ class LeaderboardController extends Controller
 
         $rows = User::query()
             ->where('house_id', $me->house_id)
-            ->whereIn('status', ['approved', 'admin'])
+            ->whereIn('status', User::HOUSE_MEMBER_STATUSES)
             ->orderByDesc('karma_balance')
             ->orderBy('created_at')
             ->get(['id', 'name', 'email', 'is_founder', 'karma_balance']);

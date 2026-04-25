@@ -3,10 +3,12 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class House extends Model
 {
+    use SoftDeletes;
+
     protected $fillable = [
         'name',
         'code',
@@ -31,9 +33,9 @@ class House extends Model
     }
 
     public function records()
-{
-    return $this->hasManyThrough(Record::class, Expense::class);
-}
+    {
+        return $this->hasManyThrough(Record::class, Expense::class);
+    }
 
     public function categories()
     {
@@ -49,6 +51,4 @@ class House extends Model
     {
         return $this->hasMany(JoinRequest::class);
     }
-
-     
 }

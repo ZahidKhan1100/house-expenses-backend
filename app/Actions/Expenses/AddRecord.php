@@ -17,7 +17,6 @@ class AddRecord
 {
     public function handle(User $user, array $data): Record
     {
-        \Log::info('🔥 AddRecord started');
         return DB::transaction(function () use ($user, $data) {
 
         $month = $data['month'] ?? now()->format('Y-m');
@@ -107,8 +106,11 @@ class AddRecord
                 // ignore
             }
 
-            \Log::info('Expense check', [
-                'expense' => $expense
+            \Log::info('AddRecord expense ensured', [
+                'house_id' => (int) $user->house_id,
+                'expense_id' => (int) $expense->id,
+                'month' => (string) $month,
+                'actor_user_id' => (int) $user->id,
             ]);
 
             $record = $record->load(['category', 'expense']); // eager load
@@ -173,7 +175,6 @@ class AddRecord
                         Log::info('Push skipped (no expo token)', [
                             'type' => 'bill.created',
                             'to_user_id' => (int) $mate->id,
-                            'to_user_name' => (string) ($mate->name ?? ''),
                             'house_id' => (int) $user->house_id,
                         ]);
 

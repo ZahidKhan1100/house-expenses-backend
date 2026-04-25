@@ -90,14 +90,14 @@ class HouseWrappedController extends Controller
             $top = User::query()
                 ->where('id', $monthlyEarned->user_id)
                 ->where('house_id', $me->house_id)
-                ->whereIn('status', ['approved', 'admin'])
+                ->whereIn('status', User::HOUSE_MEMBER_STATUSES)
                 ->first(['id', 'name', 'karma_balance']);
         }
 
         if (!$top) {
             $top = User::query()
                 ->where('house_id', $me->house_id)
-                ->whereIn('status', ['approved', 'admin'])
+                ->whereIn('status', User::HOUSE_MEMBER_STATUSES)
                 ->orderByDesc('karma_balance')
                 ->orderBy('created_at')
                 ->first(['id', 'name', 'karma_balance']);

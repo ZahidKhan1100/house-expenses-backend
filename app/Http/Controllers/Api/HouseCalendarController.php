@@ -85,7 +85,7 @@ class HouseCalendarController extends Controller
         ]);
 
         $mate = User::where('house_id', $user->house_id)
-            ->whereIn('status', ['approved', 'admin'])
+            ->whereIn('status', User::HOUSE_MEMBER_STATUSES)
             ->where('id', (int) $data['user_id'])
             ->firstOrFail();
 
