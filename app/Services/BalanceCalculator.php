@@ -34,7 +34,7 @@ class BalanceCalculator
         $ids = $col->pluck('id')->filter()->sort()->values()->implode(',');
 
         $key = sprintf(
-            'split_balance:v1:%d:%s:%d:%s:%s:%s',
+            'split_balance:v2:%d:%s:%d:%s:%s:%s',
             $houseId,
             $month,
             $count,
@@ -64,15 +64,6 @@ class BalanceCalculator
             $included = is_array($rec->included_mates)
                 ? $rec->included_mates
                 : [];
-
-            // ensure payer included
-            $exists = collect($included)->firstWhere('id', $rec->paid_by);
-
-            if (!$exists) {
-                $included[] = [
-                    'id' => $rec->paid_by,
-                ];
-            }
 
             // filter only active mates
             $included = array_values(array_filter($included, function ($m) use ($mateIds) {
@@ -104,15 +95,24 @@ class BalanceCalculator
                 $shares = ExpenseSplit::sharePerUser($total, $included);
             }
 
+            $payerId = (int) $rec->paid_by;
+            $payerIncluded = false;
+
             foreach ($included as $mate) {
                 $id = (int) $mate['id'];
                 $split = $shares[$id] ?? 0.0;
 
-                if ($id === (int) $rec->paid_by) {
+                if ($id === $payerId) {
                     $balance[$id] += $total - $split;
+                    $payerIncluded = true;
                 } else {
                     $balance[$id] -= $split;
                 }
+            }
+
+            // Payer floated the full bill but is not splitting (0% consumption share): owed the whole amount by everyone in `included`.
+            if (! $payerIncluded && array_key_exists($payerId, $balance)) {
+                $balance[$payerId] += $total;
             }
         }
 

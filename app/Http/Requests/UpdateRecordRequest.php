@@ -12,7 +12,7 @@ class UpdateRecordRequest extends FormRequest
             'description' => 'sometimes|string|max:255',
             'amount' => 'sometimes|numeric|min:0',
             'category_id' => 'sometimes|exists:categories,id',
-            'included_mates' => 'sometimes|array',
+            'included_mates' => 'sometimes|array|min:1',
             'included_mates.*' => 'exists:users,id',
             'paid_by' => 'sometimes|exists:users,id',
             'month' => 'sometimes|string',

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Services\CloudinaryService;
 use App\Support\ReceiptImagePreparer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
@@ -87,6 +88,8 @@ class ReceiptScanController extends Controller
         $data = $request->validate([
             'image' => ['required_without:image_url', 'file', 'mimes:jpg,jpeg,png,webp', 'max:10240'], // 10MB
             'image_url' => ['required_without:image', 'url', 'max:2048'],
+            'destroy_cloudinary' => ['sometimes', 'boolean'],
+            'cloudinary_public_id' => ['nullable', 'string', 'max:512'],
         ]);
 
         $apiKey = env('GEMINI_API_KEY');
@@ -207,6 +210,17 @@ class ReceiptScanController extends Controller
                 'date' => is_string($date) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) ? $date : null,
                 'category_hint' => is_string($categoryHint) && trim($categoryHint) !== '' ? substr(trim($categoryHint), 0, 80) : null,
             ];
+
+            if (($data['destroy_cloudinary'] ?? false) && isset($data['image_url'])) {
+                $pid = trim((string) ($data['cloudinary_public_id'] ?? ''));
+                if ($pid !== '' && str_contains((string) $data['image_url'], 'res.cloudinary.com')) {
+                    try {
+                        app(CloudinaryService::class)->deleteImageByPublicId($pid);
+                    } catch (\Throwable) {
+                        // Do not fail the scan if CDN unlink races.
+                    }
+                }
+            }
 
             return response()->json([
                 'success' => true,

@@ -14,6 +14,7 @@ use App\Models\HouseWallPollVote;
 use App\Models\HouseWallPost;
 use App\Models\HouseWallReaction;
 use App\Models\User;
+use App\Services\CloudinaryService;
 use App\Services\ExpoPushService;
 use App\Services\KarmaService;
 use Illuminate\Http\Request;
@@ -338,12 +339,22 @@ class HouseWallController extends Controller
 
         $data = $request->validate([
             'caption' => ['nullable', 'string', 'max:100'],
-            'image_url' => ['required', 'string', 'max:2048'],
+            'image_url' => ['nullable', 'string', 'max:2048'],
             'image_public_id' => ['nullable', 'string', 'max:255'],
             'running_low_request_id' => ['nullable', 'integer'],
         ]);
 
-        return DB::transaction(function () use ($user, $data) {
+        $caption = trim((string) ($data['caption'] ?? ''));
+        $imageUrl = isset($data['image_url']) ? trim((string) $data['image_url']) : '';
+        $publicIdTrim = isset($data['image_public_id']) ? trim((string) $data['image_public_id']) : '';
+
+        $data['caption'] = $caption !== '' ? $caption : null;
+
+        if ($imageUrl === '' && ($data['caption'] === null || $data['caption'] === '')) {
+            return response()->json(['message' => 'Add a caption or an image for this snippet.'], 422);
+        }
+
+        return DB::transaction(function () use ($user, $data, $imageUrl, $publicIdTrim) {
             $lowReq = null;
             if (!empty($data['running_low_request_id'])) {
                 $lowReq = HouseRunningLowRequest::query()
@@ -359,8 +370,8 @@ class HouseWallController extends Controller
                 'user_id' => $user->id,
                 'type' => 'snippet',
                 'caption' => $data['caption'] ?? null,
-                'image_url' => $data['image_url'],
-                'image_public_id' => $data['image_public_id'] ?? null,
+                'image_url' => $imageUrl !== '' ? $imageUrl : null,
+                'image_public_id' => $publicIdTrim !== '' ? $publicIdTrim : null,
             ])->load('user:id,name');
 
             $karmaPts = 10;
@@ -707,6 +718,52 @@ class HouseWallController extends Controller
                 'updated_at' => now(),
             ],
         );
+
+        return response()->json(['success' => true]);
+    }
+
+    /**
+     * After Gemini extracts receipt fields, delete the snippet's Cloudinary upload and drop image_url
+     * from the persisted post — keeps CDN storage minimal.
+     */
+    public function discardSnippetCloudinaryUpload(Request $request)
+    {
+        $user = $request->user();
+        if (! $user->house_id) {
+            return response()->json(['message' => 'No house'], 400);
+        }
+
+        $data = $request->validate([
+            'post_id' => ['required', 'integer', 'min:1'],
+            'cloudinary_public_id' => ['required', 'string', 'max:255'],
+        ]);
+
+        $post = HouseWallPost::query()
+            ->where('id', $data['post_id'])
+            ->where('house_id', $user->house_id)
+            ->where('user_id', $user->id)
+            ->first();
+
+        if (! $post) {
+            return response()->json(['message' => 'Post not found'], 404);
+        }
+
+        $expectedPid = trim((string) ($post->image_public_id ?? ''));
+        $incoming = trim((string) $data['cloudinary_public_id']);
+        if ($expectedPid === '' || $incoming === '' || $expectedPid !== $incoming) {
+            return response()->json(['message' => 'Image mismatch for this post'], 422);
+        }
+
+        try {
+            app(CloudinaryService::class)->deleteImageByPublicId($incoming);
+        } catch (\Throwable $e) {
+            // Proceed to drop DB links even if CDN delete retries later.
+        }
+
+        $post->update([
+            'image_url' => null,
+            'image_public_id' => null,
+        ]);
 
         return response()->json(['success' => true]);
     }

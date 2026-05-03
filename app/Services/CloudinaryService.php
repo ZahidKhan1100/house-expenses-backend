@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class CloudinaryService
 {
@@ -25,7 +26,7 @@ class CloudinaryService
         $signatureBase = 'public_id=' . $publicId . '&timestamp=' . $timestamp;
         $signature = sha1($signatureBase . $apiSecret);
 
-        Http::timeout(8)->asForm()->post(
+        $response = Http::timeout(8)->asForm()->post(
             "https://api.cloudinary.com/v1_1/{$cloudName}/image/destroy",
             [
                 'public_id' => $publicId,
@@ -34,6 +35,13 @@ class CloudinaryService
                 'signature' => $signature,
             ],
         );
+
+        if (! $response->successful()) {
+            Log::warning('Cloudinary image destroy failed', [
+                'public_id_prefix' => substr($publicId, 0, 80),
+                'status' => $response->status(),
+            ]);
+        }
     }
 }
 

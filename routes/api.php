@@ -37,16 +37,17 @@ use Illuminate\Support\Facades\Password;
 
 Route::prefix('v1')->group(function () {
 
-    // Public routes
-    Route::post('/signup', [AuthController::class, 'signup']);
-    Route::post('/login', [AuthController::class, 'login']);
+    // Public auth (rate-limited — brute-force protection when APP_DEBUG=false behind HTTPS).
+    Route::post('/signup', [AuthController::class, 'signup'])->middleware('throttle:10,1');
+    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:25,1');
     // Route::get('/verify-email/{token}', [VerifyEmailController::class, 'verify']);
     Route::post('/resend-verification', [VerifyEmailController::class, 'resend']);
     Route::post('/check-email-verified', [AuthController::class, 'checkEmailVerified']);
     Route::get('/verify-email/{token}', [VerifyEmailController::class, 'verify'])
         ->name('verify.email');
 
-    Route::post('/social-login', [SocialLoginController::class, 'login']);
+    Route::post('/social-login', [SocialLoginController::class, 'login'])
+        ->middleware('throttle:30,1');
 
     Route::post('/leads', [LeadController::class, 'store'])
         ->middleware('throttle:20,1');
@@ -134,6 +135,7 @@ Route::prefix('v1')->group(function () {
         Route::get('/house-wall', [HouseWallController::class, 'index']);
         Route::post('/house-wall/upload-signature', [HouseWallController::class, 'uploadSignature']);
         Route::post('/house-wall/snippets', [HouseWallController::class, 'createSnippet']);
+        Route::post('/house-wall/snippets/discard-upload', [HouseWallController::class, 'discardSnippetCloudinaryUpload']);
         Route::post('/house-wall/polls', [HouseWallController::class, 'createPoll']);
         Route::post('/house-wall/polls/{post}/vote', [HouseWallController::class, 'vote']);
         Route::post('/house-wall/{post}/heart', [HouseWallController::class, 'toggleHeart']);
