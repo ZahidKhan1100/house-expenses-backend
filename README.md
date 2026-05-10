@@ -2,7 +2,9 @@
 
 ## Filament staff admin (`/admin`)
 
-Internal staff use a **separate** `admins` table and the **`admin`** session guard (not app `users`). The panel is Filament v4 with **Spatie Permission** and **Filament Shield** for roles and policies.
+Production URL: **`https://{your-api-host}/admin`** (derived from `APP_URL`). See **[DEPLOYMENT.md](./DEPLOYMENT.md)** for live env (`APP_URL`, `TRUSTED_PROXIES`, `SESSION_SECURE_COOKIE`, `ADMIN_*`), trusting proxies behind Railway/Cloudflare, and **`php artisan admin:create`** vs seeding.
+
+Internal staff use a **separate** `admins` table and the **`admin`** session guard (not mobile `users`). The panel is Filament v4 with **Spatie Permission** and **Filament Shield**.
 
 ### First-time setup
 
