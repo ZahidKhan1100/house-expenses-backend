@@ -21,15 +21,17 @@ class LeaderboardController extends Controller
             ->whereIn('status', User::HOUSE_MEMBER_STATUSES)
             ->orderByDesc('karma_balance')
             ->orderBy('created_at')
-            ->get(['id', 'name', 'email', 'is_founder', 'karma_balance']);
+            ->get(['id', 'name', 'email', 'is_founder', 'karma_balance', 'avatar_url']);
 
         $karma = app(KarmaService::class);
 
         $users = $rows->map(function (User $u) use ($karma) {
             $bal = (int) ($u->karma_balance ?? 0);
+            $avatar = $u->avatar_url ? trim((string) $u->avatar_url) : '';
             return [
                 'id' => $u->id,
                 'name' => $u->name,
+                'avatar_url' => $avatar !== '' ? $avatar : null,
                 'is_founder' => (bool) $u->is_founder,
                 'karma_balance' => $bal,
                 'level' => $karma->levelFor($bal),
