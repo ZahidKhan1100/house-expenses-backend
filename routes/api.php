@@ -135,8 +135,10 @@ Route::prefix('v1')->group(function () {
         Route::get('/house-wall', [HouseWallController::class, 'index']);
         Route::post('/house-wall/upload-signature', [HouseWallController::class, 'uploadSignature']);
         Route::post('/house-wall/snippets', [HouseWallController::class, 'createSnippet']);
+        Route::put('/house-wall/snippets/{post}', [HouseWallController::class, 'updateSnippet']);
         Route::post('/house-wall/snippets/discard-upload', [HouseWallController::class, 'discardSnippetCloudinaryUpload']);
         Route::post('/house-wall/polls', [HouseWallController::class, 'createPoll']);
+        Route::put('/house-wall/polls/{post}', [HouseWallController::class, 'updatePoll']);
         Route::post('/house-wall/polls/{post}/vote', [HouseWallController::class, 'vote']);
         Route::post('/house-wall/{post}/heart', [HouseWallController::class, 'toggleHeart']);
         Route::post('/house-wall/{post}/emoji', [HouseWallController::class, 'toggleEmojiReaction']);

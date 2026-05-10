@@ -57,7 +57,7 @@ class HouseCalendarService
     /**
      * Who is away or hosting a guest today (for House Wall presence strip).
      *
-     * @return array<int, array{user_id: int, name: string, presence: string, away_until: ?string, guest_plus: bool}>
+     * @return array<int, array{user_id: int, name: string, avatar_url: ?string, presence: string, away_until: ?string, guest_plus: bool}>
      */
     public function matePresenceToday(int $houseId): array
     {
@@ -67,7 +67,7 @@ class HouseCalendarService
             ->where('house_id', $houseId)
             ->whereIn('status', User::HOUSE_MEMBER_STATUSES)
             ->orderBy('name')
-            ->get(['id', 'name']);
+            ->get(['id', 'name', 'avatar_url']);
 
         $blocks = HouseCalendarBlock::query()
             ->where('house_id', $houseId)
@@ -81,10 +81,13 @@ class HouseCalendarService
             $away = $blocks->first(fn ($b) => (int) $b->user_id === $uid && $b->kind === 'away');
             $guest = $blocks->first(fn ($b) => (int) $b->user_id === $uid && $b->kind === 'guest');
 
+            $avatarUrl = $mate->avatar_url ? (string) $mate->avatar_url : null;
+
             if ($away) {
                 $out[] = [
                     'user_id' => $uid,
                     'name' => (string) $mate->name,
+                    'avatar_url' => $avatarUrl,
                     'presence' => 'away',
                     'away_until' => Carbon::parse($away->ends_on)->format('Y-m-d'),
                     'guest_plus' => false,
@@ -93,6 +96,7 @@ class HouseCalendarService
                 $out[] = [
                     'user_id' => $uid,
                     'name' => (string) $mate->name,
+                    'avatar_url' => $avatarUrl,
                     'presence' => 'home',
                     'away_until' => null,
                     'guest_plus' => $guest !== null,

@@ -497,6 +497,112 @@ class HouseWallController extends Controller
         });
     }
 
+    public function updateSnippet(Request $request, HouseWallPost $post)
+    {
+        $user = $request->user();
+        if (!$user->house_id || (int) $post->house_id !== (int) $user->house_id) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+        if ($post->type !== 'snippet') {
+            return response()->json(['message' => 'Not a snippet'], 400);
+        }
+
+        $isAdmin = ($user->role === 'admin');
+        $isOwner = ((int) ($post->user_id ?? 0) === (int) $user->id);
+        if (!$isAdmin && !$isOwner) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $data = $request->validate([
+            'caption' => ['sometimes', 'nullable', 'string', 'max:100'],
+            'image_url' => ['sometimes', 'nullable', 'string', 'max:2048'],
+            'image_public_id' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'clear_image' => ['sometimes', 'boolean'],
+        ]);
+
+        $clearImage = !empty($data['clear_image']);
+
+        if (array_key_exists('caption', $data)) {
+            $t = trim((string) ($data['caption'] ?? ''));
+            $post->caption = $t !== '' ? $t : null;
+        }
+
+        if (array_key_exists('image_url', $data)) {
+            $newUrlTrim = trim((string) ($data['image_url'] ?? ''));
+            if ($newUrlTrim !== '') {
+                $pid = array_key_exists('image_public_id', $data)
+                    ? trim((string) ($data['image_public_id'] ?? ''))
+                    : '';
+                $post->image_url = $newUrlTrim;
+                $post->image_public_id = $pid !== '' ? $pid : null;
+            }
+        } elseif ($clearImage) {
+            $post->image_url = null;
+            $post->image_public_id = null;
+        }
+
+        $hasCaption = is_string($post->caption) && trim($post->caption) !== '';
+        $hasImage = is_string($post->image_url) && trim($post->image_url) !== '';
+        if (!$hasCaption && !$hasImage) {
+            return response()->json(['message' => 'Add a caption or an image for this snippet.'], 422);
+        }
+
+        $post->save();
+
+        return response()->json(['success' => true]);
+    }
+
+    public function updatePoll(Request $request, HouseWallPost $post)
+    {
+        $user = $request->user();
+        if (!$user->house_id || (int) $post->house_id !== (int) $user->house_id) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+        if ($post->type !== 'poll') {
+            return response()->json(['message' => 'Not a poll'], 400);
+        }
+
+        $isAdmin = ($user->role === 'admin');
+        $isOwner = ((int) ($post->user_id ?? 0) === (int) $user->id);
+        if (!$isAdmin && !$isOwner) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $voteCount = (int) HouseWallPollVote::where('post_id', $post->id)->count();
+
+        if ($voteCount > 0) {
+            $data = $request->validate([
+                'question' => ['required', 'string', 'max:180'],
+            ]);
+            $post->poll_question = trim($data['question']);
+            $post->save();
+
+            return response()->json(['success' => true]);
+        }
+
+        $data = $request->validate([
+            'question' => ['required', 'string', 'max:180'],
+            'options' => ['required', 'array', 'min:2', 'max:4'],
+            'options.*' => ['required', 'string', 'max:120'],
+        ]);
+
+        DB::transaction(function () use ($post, $data): void {
+            DB::table('house_wall_poll_votes')->where('post_id', $post->id)->delete();
+            DB::table('house_wall_poll_options')->where('post_id', $post->id)->delete();
+            foreach (array_values($data['options']) as $i => $text) {
+                HouseWallPollOption::create([
+                    'post_id' => $post->id,
+                    'text' => $text,
+                    'sort_order' => $i,
+                ]);
+            }
+            $post->poll_question = trim($data['question']);
+            $post->save();
+        });
+
+        return response()->json(['success' => true]);
+    }
+
     public function vote(Request $request, HouseWallPost $post)
     {
         $user = $request->user();
