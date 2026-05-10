@@ -150,6 +150,23 @@ class PaymentController extends Controller
             }
         }
 
+        $mateRows = $mates->values()->all();
+        $mateIdList = collect($mateRows)->pluck('id')->map(fn ($id) => (int) $id)->unique()->filter()->all();
+        $avatarById = User::query()
+            ->withTrashed()
+            ->whereIn('id', $mateIdList)
+            ->pluck('avatar_url', 'id');
+
+        $mates = collect($mateRows)->map(function (array $row) use ($avatarById) {
+            $id = (int) ($row['id'] ?? 0);
+
+            return [
+                'id' => $id,
+                'name' => (string) ($row['name'] ?? 'Unknown'),
+                'avatar_url' => $avatarById[$id] ?? null,
+            ];
+        });
+
         return response()->json([
             'mates' => $mates->values(),
             'transactions' => $transactions,

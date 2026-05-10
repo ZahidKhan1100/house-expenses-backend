@@ -18,6 +18,7 @@ class DashboardController extends Controller
                 'id' => $request->user()->id,
                 'name' => $request->user()->name,
                 'email' => $request->user()->email,
+                'avatar_url' => $request->user()->avatar_url,
                 'house_id' => $request->user()->house_id,
                 'role' => $request->user()->role,
                 'status' => $request->user()->status,

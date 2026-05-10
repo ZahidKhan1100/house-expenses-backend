@@ -41,6 +41,7 @@ class MateController extends Controller
             'id' => $admin->id,
             'name' => $admin->name,
             'email' => $admin->email,
+            'avatar_url' => $admin->avatar_url,
             'is_founder' => (bool) $admin->is_founder,
             'karma_balance' => (int) ($admin->karma_balance ?? 0),
             'is_house_legend' => $topLegendId !== null && (int) $admin->id === (int) $topLegendId,
@@ -50,12 +51,13 @@ class MateController extends Controller
         $approved = $house->mates()
             ->where('role', 'mate')
             ->where('status', 'approved')
-            ->get(['id', 'name', 'email', 'is_founder', 'karma_balance'])
+            ->get(['id', 'name', 'email', 'avatar_url', 'is_founder', 'karma_balance'])
             ->map(function ($m) use ($topLegendId) {
                 return [
                     'id' => $m->id,
                     'name' => $m->name,
                     'email' => $m->email,
+                    'avatar_url' => $m->avatar_url,
                     'is_founder' => (bool) $m->is_founder,
                     'karma_balance' => (int) ($m->karma_balance ?? 0),
                     'is_house_legend' => $topLegendId !== null && (int) $m->id === (int) $topLegendId,
@@ -73,6 +75,7 @@ class MateController extends Controller
                     'id' => $user->id,
                     'name' => $user->name,
                     'email' => $user->email,
+                    'avatar_url' => $user->avatar_url,
                     'is_founder' => (bool) $user->is_founder,
                     'karma_balance' => (int) ($user->karma_balance ?? 0),
                     'is_house_legend' => $topLegendId !== null && (int) $user->id === (int) $topLegendId,

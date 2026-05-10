@@ -71,6 +71,7 @@ class GetDashboard
                     'id' => $mate->id,
                     'name' => $mate->name,
                     'role' => $mate->role,
+                    'avatar_url' => $mate->avatar_url,
                 ];
             });
 

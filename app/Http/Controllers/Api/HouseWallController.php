@@ -34,6 +34,22 @@ class HouseWallController extends Controller
         ];
     }
 
+    /**
+     * @return array{id:int,name:string,avatar_url:null|string}|null
+     */
+    private function serializeWallUser(?User $wallUser): ?array
+    {
+        if (!$wallUser) {
+            return null;
+        }
+
+        return [
+            'id' => (int) $wallUser->id,
+            'name' => (string) $wallUser->name,
+            'avatar_url' => $wallUser->avatar_url ? (string) $wallUser->avatar_url : null,
+        ];
+    }
+
     private function normalizeRunningLowLabel(string $s): string
     {
         $s = trim(preg_replace('/\s+/u', ' ', $s));
@@ -250,7 +266,7 @@ class HouseWallController extends Controller
 
         $posts = HouseWallPost::query()
             ->where('house_id', $user->house_id)
-            ->with(['user:id,name', 'pollOptions:id,post_id,text,sort_order'])
+            ->with(['user:id,name,avatar_url', 'pollOptions:id,post_id,text,sort_order'])
             ->orderByDesc('id')
             ->limit(50)
             ->get();
@@ -323,7 +339,7 @@ class HouseWallController extends Controller
                 'my_hearted' => isset($myHearts[$p->id]),
                 'emoji_counts' => $emojiCounts->get($p->id, []),
                 'my_emojis' => $myEmojis->get($p->id, []),
-                'user' => $p->user ? ['id' => $p->user->id, 'name' => $p->user->name] : null,
+                'user' => $this->serializeWallUser($p->user),
                 'created_at' => $p->created_at?->toISOString(),
                 'system_payload' => $p->system_payload,
             ];
@@ -372,7 +388,7 @@ class HouseWallController extends Controller
                 'caption' => $data['caption'] ?? null,
                 'image_url' => $imageUrl !== '' ? $imageUrl : null,
                 'image_public_id' => $publicIdTrim !== '' ? $publicIdTrim : null,
-            ])->load('user:id,name');
+            ])->load('user:id,name,avatar_url');
 
             $karmaPts = 10;
             $karmaReason = 'wall_contributor';
@@ -404,7 +420,7 @@ class HouseWallController extends Controller
                 'my_hearted' => false,
                 'emoji_counts' => [],
                 'my_emojis' => [],
-                'user' => ['id' => $post->user->id, 'name' => $post->user->name],
+                'user' => $this->serializeWallUser($post->user),
                 'created_at' => $post->created_at?->toISOString(),
                 'system_payload' => null,
             ];
@@ -449,7 +465,7 @@ class HouseWallController extends Controller
                 $options[] = ['id' => $opt->id, 'text' => $opt->text];
             }
 
-            $post = $post->load('user:id,name');
+            $post = $post->load('user:id,name,avatar_url');
 
             // Karma: Wall Contributor +10
             try {
@@ -468,7 +484,9 @@ class HouseWallController extends Controller
                 'my_vote_option_id' => null,
                 'hearts_count' => 0,
                 'my_hearted' => false,
-                'user' => ['id' => $post->user->id, 'name' => $post->user->name],
+                'emoji_counts' => [],
+                'my_emojis' => [],
+                'user' => $this->serializeWallUser($post->user),
                 'created_at' => $post->created_at?->toISOString(),
                 'system_payload' => null,
             ];
@@ -685,6 +703,7 @@ class HouseWallController extends Controller
             ->get([
                 'users.id as user_id',
                 'users.name as name',
+                'users.avatar_url as avatar_url',
                 'users.role as role',
                 'house_member_statuses.status as status',
                 'house_member_statuses.updated_at as updated_at',
@@ -695,6 +714,7 @@ class HouseWallController extends Controller
             'statuses' => $rows->map(fn ($r) => [
                 'user_id' => (int) $r->user_id,
                 'name' => (string) ($r->name ?? ''),
+                'avatar_url' => $r->avatar_url ?? null,
                 'role' => $r->role,
                 'status' => $r->status ?? null,
                 'updated_at' => $r->updated_at,
