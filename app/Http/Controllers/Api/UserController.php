@@ -20,6 +20,7 @@ class UserController extends Controller
         return response()->json([
             'id' => $user->id,
             'name' => $user->name,
+            'avatar_url' => $user->avatar_url,
             'email' => $user->email,
             'role' => $user->role,
             'status' => $user->status,
@@ -35,6 +36,24 @@ class UserController extends Controller
                 'guest_day_weight_percent' => (float) ($user->house->guest_day_weight_percent ?? 100.0),
             ] : null,
         ]);
+    }
+
+    public function updateProfile(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => 'sometimes|string|min:1|max:255',
+            'avatar_url' => 'sometimes|nullable|string|max:2048|url',
+        ]);
+
+        if ($validated === []) {
+            return response()->json(['message' => 'Provide name and/or avatar_url to update.'], 422);
+        }
+
+        $user = $request->user();
+        $user->fill(collect($validated)->only(['name', 'avatar_url'])->all());
+        $user->save();
+
+        return $this->profile($request);
     }
 
     public function search(Request $request)

@@ -172,6 +172,7 @@ Route::prefix('v1')->group(function () {
             ->middleware('throttle:receipt-scan');
 
         Route::get('/profile', [UserController::class, 'profile']);
+        Route::put('/profile', [UserController::class, 'updateProfile']);
         Route::get('/users/search', [UserController::class, 'search']);
 
 
