@@ -90,6 +90,27 @@ class SettlementController extends Controller
             ->where('house_id', $user->house_id)
             ->firstOrFail();
 
+        // Only the sender (who pays) or the receiver (who confirms) can mark
+        // a transfer as paid. Other housemates (and admins not party to the
+        // transfer) cannot toggle other people's settlements.
+        $authUserId = (int) $user->id;
+        $isSender = $authUserId === (int) $settlement->from_user_id;
+        $isReceiver = $authUserId === (int) $settlement->to_user_id;
+
+        if (!$isSender && !$isReceiver) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only the sender or receiver can mark this settlement as paid.',
+            ], 403);
+        }
+
+        if ((string) $settlement->status === 'paid') {
+            return response()->json([
+                'success' => true,
+                'message' => 'Already marked as paid.',
+            ]);
+        }
+
         $settlement->update([
             'status' => 'paid',
             'settled_at' => now(),
@@ -105,12 +126,19 @@ class SettlementController extends Controller
             // best-effort; settlement must still succeed
         }
 
-        // Notify only the receiver (to_user_id) in realtime and via push.
+        // Notify the OTHER party (the one who didn't mark it): if the sender
+        // marks paid, ping the receiver to confirm; if the receiver marks
+        // paid (acknowledging they got the money), ping the sender that the
+        // transfer is closed.
         $houseCurrency = $user->house?->currency ?? '$';
         $amount = round((float) $settlement->amount, 2);
 
+        $otherUserId = $isSender
+            ? (int) $settlement->to_user_id
+            : (int) $settlement->from_user_id;
+
         event(new SettlementPaid(
-            toUserId: (int) $settlement->to_user_id,
+            toUserId: $otherUserId,
             fromUserId: (int) $user->id,
             fromName: (string) ($user->name ?? 'Someone'),
             amount: $amount,
@@ -119,18 +147,24 @@ class SettlementController extends Controller
             settlementId: (int) $settlement->id,
         ));
 
-        $receiver = User::with('pushTokens')->find($settlement->to_user_id);
-        if ($receiver && $receiver->allExpoPushTokens()->isNotEmpty()) {
+        $otherUser = User::with('pushTokens')->find($otherUserId);
+        if ($otherUser && $otherUser->allExpoPushTokens()->isNotEmpty()) {
+            $title = $isSender ? 'Settlement received' : 'Settlement confirmed';
+            $body = $isSender
+                ? (($user->name ?? 'A mate') . ' just settled ' . $houseCurrency . number_format($amount, 2) . ' with you! Tap to confirm.')
+                : (($user->name ?? 'A mate') . ' confirmed receiving ' . $houseCurrency . number_format($amount, 2) . '. All settled!');
+
             Log::info('Sending push', [
                 'type' => 'settlement.paid',
-                'to_user_id' => (int) $receiver->id,
+                'to_user_id' => $otherUserId,
                 'house_id' => (int) $user->house_id,
                 'settlement_id' => (int) $settlement->id,
+                'marked_by_role' => $isSender ? 'sender' : 'receiver',
             ]);
             app(ExpoPushService::class)->sendToUserDevices(
-                $receiver,
-                'Settlement received',
-                ($user->name ?? 'A mate') . ' just settled ' . $houseCurrency . number_format($amount, 2) . ' with you! Tap to confirm.',
+                $otherUser,
+                $title,
+                $body,
                 [
                     'type' => 'settlement.paid',
                     'settlementId' => $settlement->id,
@@ -140,7 +174,7 @@ class SettlementController extends Controller
         } else {
             Log::info('Push skipped (no expo token)', [
                 'type' => 'settlement.paid',
-                'to_user_id' => (int) ($settlement->to_user_id ?? 0),
+                'to_user_id' => $otherUserId,
                 'house_id' => (int) $user->house_id,
                 'settlement_id' => (int) $settlement->id,
             ]);
