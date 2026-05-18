@@ -27,7 +27,10 @@ class AppServiceProvider extends ServiceProvider
     {
         //
         ResetPassword::createUrlUsing(function ($user, string $token) {
-            return "houseapp://reset-password?token={$token}&email={$user->email}";
+            $scheme = (string) config('houseexpenses.password_reset.mobile_scheme', 'com.ihabimate.habimate');
+
+            return $scheme . '://reset-password?token=' . rawurlencode($token)
+                . '&email=' . rawurlencode((string) $user->email);
         });
 
         RateLimiter::for('receipt-scan', function (Request $request) {

@@ -30,6 +30,7 @@ use App\Http\Controllers\Api\ExpenseAuditController;
 use App\Http\Controllers\Api\CategoryController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Password;
@@ -75,8 +76,9 @@ Route::prefix('v1')->group(function () {
             ]
         );
 
-        // 🔥 ALWAYS HTTPS web link
-        $resetLink = "https://habimate.com/reset-password?token={$token}&email=" . urlencode($user->email);
+        $webBase = rtrim((string) config('houseexpenses.password_reset.web_base', 'https://habimate.com'), '/');
+        $resetLink = $webBase . '/reset-password?token=' . urlencode($token)
+            . '&email=' . urlencode($user->email);
 
         $html = view('emails.reset', compact('resetLink'))->render();
 

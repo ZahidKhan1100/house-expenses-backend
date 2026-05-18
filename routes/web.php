@@ -23,5 +23,9 @@ Route::get('/test-mail', function () {
 });
 
 Route::get('/reset-password', function () {
-    return view('auth.reset-password');
+    return view('auth.reset-password', [
+        'passwordResetScheme' => (string) config('houseexpenses.password_reset.mobile_scheme', 'com.ihabimate.habimate'),
+        'passwordResetAndroidPackage' => (string) config('houseexpenses.password_reset.android_package', 'com.ihabimate.habimate'),
+        'passwordResetApiUrl' => url('/api/v1/reset-password'),
+    ]);
 });
