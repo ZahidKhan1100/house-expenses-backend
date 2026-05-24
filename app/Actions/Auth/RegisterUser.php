@@ -57,9 +57,11 @@ class RegisterUser
         // =====================================================
         // 📧 SEND VERIFICATION EMAIL
         // =====================================================
-        $verificationUrl = route('verify.email', [
-            'token' => $user->email_verification_token,
-        ]);
+        $verificationUrl = sprintf(
+            '%s/api/v1/verify-email/%s',
+            rtrim(config('houseexpenses.public_app_url'), '/'),
+            rawurlencode($user->email_verification_token ?? ''),
+        );
 
         $html = view('emails.verify-email', [
             'name' => $user->name,

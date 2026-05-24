@@ -34,7 +34,8 @@ class VerifyEmailController
         ]);
 
         $plain = $user->createToken('mobile')->plainTextToken;
-        $deepLink = 'habimate://verified?token='.rawurlencode($plain);
+        $scheme = (string) config('houseexpenses.password_reset.mobile_scheme', 'com.ihabimate.habimate');
+        $deepLink = $scheme.'://verified?token='.rawurlencode($plain);
 
         return response()->view('emails.verified', [
             'status' => 'success',

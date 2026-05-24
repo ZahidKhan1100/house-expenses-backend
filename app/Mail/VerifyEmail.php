@@ -15,7 +15,11 @@ class VerifyEmail extends Mailable
     public function __construct($user)
     {
         $this->user = $user;
-        $this->verificationUrl = url("/api/v1/verify-email/{$user->email_verification_token}");
+        $this->verificationUrl = sprintf(
+            '%s/api/v1/verify-email/%s',
+            rtrim(config('houseexpenses.public_app_url'), '/'),
+            rawurlencode((string) $user->email_verification_token),
+        );
     }
 
     public function build()

@@ -1,6 +1,22 @@
 <?php
 
+/**
+ * Canonical public base URL where this Laravel app responds (HTTPS, no trailing slash).
+ * Critical for emailed links when APP_URL differs from production (e.g. Railway internal hostname).
+ *
+ * Prefer explicit PUBLIC_APP_URL (e.g. https://api.habimate.com) so verify-email URLs never
+ * hit the Next.js domain (would 404 on /api/v1/...).
+ */
+function houseexpenses_public_app_url(): string
+{
+    $raw = env('PUBLIC_APP_URL', env('APP_URL', 'http://localhost'));
+
+    return rtrim((string) $raw, '/');
+}
+
 return [
+
+    'public_app_url' => houseexpenses_public_app_url(),
 
     /*
     |--------------------------------------------------------------------------
