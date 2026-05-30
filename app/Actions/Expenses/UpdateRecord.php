@@ -32,14 +32,18 @@ class UpdateRecord
             $includedMates = [];
 
             if (!empty($data['included_mates'])) {
-                $mates = User::whereIn('id', $data['included_mates'])
-                    ->get(['id', 'name']);
+                $matesById = User::whereIn('id', $data['included_mates'])
+                    ->get(['id', 'name'])
+                    ->keyBy('id');
 
-                foreach ($mates as $mate) {
-                    $includedMates[] = [
-                        'id' => $mate->id,
-                        'name' => $mate->name,
-                    ];
+                foreach ($data['included_mates'] as $mateId) {
+                    $mate = $matesById->get($mateId);
+                    if ($mate) {
+                        $includedMates[] = [
+                            'id' => $mate->id,
+                            'name' => $mate->name,
+                        ];
+                    }
                 }
             } else {
                 // fallback to existing

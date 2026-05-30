@@ -39,12 +39,18 @@ class AddRecord
             // Resolve included mates with their names
             $includedMates = [];
             if (!empty($data['included_mates'])) {
-                $mates = User::whereIn('id', $data['included_mates'])->get(['id', 'name']);
-                foreach ($mates as $mate) {
-                    $includedMates[] = [
-                        'id' => $mate->id,
-                        'name' => $mate->name,
-                    ];
+                // Preserve client list order — remainder cents go to earlier entries (ExpenseSplit).
+                $matesById = User::whereIn('id', $data['included_mates'])
+                    ->get(['id', 'name'])
+                    ->keyBy('id');
+                foreach ($data['included_mates'] as $mateId) {
+                    $mate = $matesById->get($mateId);
+                    if ($mate) {
+                        $includedMates[] = [
+                            'id' => $mate->id,
+                            'name' => $mate->name,
+                        ];
+                    }
                 }
             }
 

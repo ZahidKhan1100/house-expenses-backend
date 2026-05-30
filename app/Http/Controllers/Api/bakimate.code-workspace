@@ -5,6 +5,9 @@
 		},
 		{
 			"path": "../../../../../bakimate-backend"
+		},
+		{
+			"path": "../../../../../../../../Users/zahid-khan/ReactNative/bakimate-frontend"
 		}
 	],
 	"settings": {}
