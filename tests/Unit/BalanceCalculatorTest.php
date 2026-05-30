@@ -66,10 +66,30 @@ final class BalanceCalculatorTest extends TestCase
 
         $b = $this->calculator->calculate($records, $mateIds, 100.0);
 
-        self::assertEqualsWithDelta(71.12, $b[10], 0.01);
+        self::assertEqualsWithDelta(71.13, $b[10], 0.01);
         self::assertEqualsWithDelta(-23.71, $b[20], 0.01);
         self::assertEqualsWithDelta(-23.71, $b[30], 0.01);
-        self::assertEqualsWithDelta(-23.70, $b[40], 0.01);
+        self::assertEqualsWithDelta(-23.71, $b[40], 0.01);
+        self::assertEqualsWithDelta(0.0, array_sum($b), 0.01);
+    }
+
+    public function test_multiple_grocery_bills_orphan_cents_at_month_end(): void
+    {
+        $payer = 1;
+        $debtors = [2, 3, 4, 5, 6];
+        $mateIds = array_merge([$payer], $debtors);
+        $records = [
+            $this->makeEqualRecord(amount: 36.25, paidBy: $payer, includedIds: $debtors),
+            $this->makeEqualRecord(amount: 2.00, paidBy: $payer, includedIds: $debtors),
+            $this->makeEqualRecord(amount: 12.33, paidBy: $payer, includedIds: $debtors),
+        ];
+
+        $b = $this->calculator->calculate($records, $mateIds, 100.0);
+
+        self::assertEqualsWithDelta(50.58, $b[$payer], 0.01);
+        foreach ($debtors as $id) {
+            self::assertEqualsWithDelta(-10.12, $b[$id], 0.01);
+        }
         self::assertEqualsWithDelta(0.0, array_sum($b), 0.01);
     }
 

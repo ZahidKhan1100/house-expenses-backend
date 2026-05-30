@@ -34,7 +34,7 @@ class BalanceCalculator
         $ids = $col->pluck('id')->filter()->sort()->values()->implode(',');
 
         $key = sprintf(
-            'split_balance:v2:%d:%s:%d:%s:%s:%s',
+            'split_balance:v3:%d:%s:%d:%s:%s:%s',
             $houseId,
             $month,
             $count,
@@ -51,12 +51,16 @@ class BalanceCalculator
     }
 
     /**
+     * Net balances for the month. Per-bill shares use floored cents (no +1 to first person);
+     * leftover cents from all bills are applied once to net debtors before returning.
+     *
      * @param  float  $guestDayWeightPercent  Each guest night counts as (percent / 100) of one full bill day (100 = legacy 1:1).
      */
     public function calculate($records, array $mateIds, float $guestDayWeightPercent = 100.0): array
     {
         $mateIds = array_map(static fn ($id) => (int) $id, $mateIds);
         $balanceCents = array_fill_keys($mateIds, 0);
+        $monthOrphanCents = 0;
         $gwp = $guestDayWeightPercent >= 0 ? $guestDayWeightPercent : 0.0;
 
         foreach ($records as $rec) {
@@ -65,13 +69,11 @@ class BalanceCalculator
                 ? $rec->included_mates
                 : [];
 
-            // filter only active mates
             $included = array_values(array_filter($included, function ($m) use ($mateIds) {
                 return in_array((int) $m['id'], $mateIds, true);
             }));
 
-            $count = count($included);
-            if ($count === 0) {
+            if (count($included) === 0) {
                 continue;
             }
 
@@ -83,21 +85,28 @@ class BalanceCalculator
                 $weighted = array_map(static function ($m) use ($excluded, $guestExtra, $billDays, $gwp) {
                     $id = (int) ($m['id'] ?? 0);
                     $ex = (int) ($excluded[$id] ?? 0);
-                    if ($ex < 0) $ex = 0;
+                    if ($ex < 0) {
+                        $ex = 0;
+                    }
                     $gx = (int) ($guestExtra[$id] ?? 0);
-                    if ($gx < 0) $gx = 0;
+                    if ($gx < 0) {
+                        $gx = 0;
+                    }
                     $guestPart = $gx * ($gwp / 100.0);
                     $eff = max(0, $billDays - $ex) + $guestPart;
+
                     return ['id' => $id, 'weight' => $eff];
                 }, $included);
-                $shares = ExpenseSplit::sharePerUserWeighted($total, $weighted);
+                $split = ExpenseSplit::sharePerUserWeightedFloored($total, $weighted);
             } else {
-                $shares = ExpenseSplit::sharePerUser($total, $included);
+                $split = ExpenseSplit::sharePerUserFloored($total, $included);
             }
+
+            $shares = $split['shares'];
+            $monthOrphanCents += (int) ($split['orphan_cents'] ?? 0);
 
             $payerId = (int) $rec->paid_by;
             $payerIncluded = false;
-
             $totalCents = (int) round($total * 100);
 
             foreach ($included as $mate) {
@@ -112,11 +121,12 @@ class BalanceCalculator
                 }
             }
 
-            // Payer floated the full bill but is not splitting (0% consumption share): owed the whole amount by everyone in `included`.
             if (! $payerIncluded && array_key_exists($payerId, $balanceCents)) {
                 $balanceCents[$payerId] += $totalCents;
             }
         }
+
+        $this->applyMonthlyOrphanCents($balanceCents, $monthOrphanCents);
 
         $balance = [];
         foreach ($balanceCents as $id => $cents) {
@@ -124,5 +134,22 @@ class BalanceCalculator
         }
 
         return $balance;
+    }
+
+    /**
+     * Distribute leftover cents from all bills in the month to net debtors (settlement-time rounding).
+     */
+    private function applyMonthlyOrphanCents(array &$balanceCents, int $monthOrphanCents): void
+    {
+        if ($monthOrphanCents <= 0) {
+            return;
+        }
+
+        $extraByUser = ExpenseSplit::distributeOrphanCentsToDebtors($monthOrphanCents, $balanceCents);
+        foreach ($extraByUser as $userId => $extraCents) {
+            if ($extraCents !== 0 && array_key_exists($userId, $balanceCents)) {
+                $balanceCents[$userId] -= $extraCents;
+            }
+        }
     }
 }

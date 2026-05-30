@@ -134,7 +134,7 @@ class AddRecord
 
                 $fresh = Record::find($record->id);
 
-                // Cent-safe share for each participant (id => amount)
+                // Floored per-bill share for notifications (monthly remainder cents apply at settlement)
                 if (($fresh->split_method ?? 'equal') === 'days') {
                     $excluded = is_array($fresh->excluded_days_by_user ?? null) ? $fresh->excluded_days_by_user : [];
                     $guestExtra = is_array($fresh->guest_extra_days_by_user ?? null) ? $fresh->guest_extra_days_by_user : [];
@@ -149,9 +149,11 @@ class AddRecord
                         $eff = max(0, $billDays - $ex) + $guestPart;
                         return ['id' => $id, 'weight' => $eff];
                     }, $includedMates);
-                    $shares = ExpenseSplit::sharePerUserWeighted((float) $fresh->amount, $weighted);
+                    $split = ExpenseSplit::sharePerUserWeightedFloored((float) $fresh->amount, $weighted);
+                    $shares = $split['shares'];
                 } else {
-                    $shares = ExpenseSplit::sharePerUser((float) $fresh->amount, $includedMates);
+                    $split = ExpenseSplit::sharePerUserFloored((float) $fresh->amount, $includedMates);
+                    $shares = $split['shares'];
                 }
 
                 event(new BillCreated(
