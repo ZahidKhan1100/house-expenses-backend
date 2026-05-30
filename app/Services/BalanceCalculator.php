@@ -56,7 +56,7 @@ class BalanceCalculator
     public function calculate($records, array $mateIds, float $guestDayWeightPercent = 100.0): array
     {
         $mateIds = array_map(static fn ($id) => (int) $id, $mateIds);
-        $balance = array_fill_keys($mateIds, 0.0);
+        $balanceCents = array_fill_keys($mateIds, 0);
         $gwp = $guestDayWeightPercent >= 0 ? $guestDayWeightPercent : 0.0;
 
         foreach ($records as $rec) {
@@ -98,27 +98,29 @@ class BalanceCalculator
             $payerId = (int) $rec->paid_by;
             $payerIncluded = false;
 
+            $totalCents = (int) round($total * 100);
+
             foreach ($included as $mate) {
                 $id = (int) $mate['id'];
-                $split = $shares[$id] ?? 0.0;
+                $splitCents = (int) round(((float) ($shares[$id] ?? 0.0)) * 100);
 
                 if ($id === $payerId) {
-                    $balance[$id] += $total - $split;
+                    $balanceCents[$id] += $totalCents - $splitCents;
                     $payerIncluded = true;
                 } else {
-                    $balance[$id] -= $split;
+                    $balanceCents[$id] -= $splitCents;
                 }
             }
 
             // Payer floated the full bill but is not splitting (0% consumption share): owed the whole amount by everyone in `included`.
-            if (! $payerIncluded && array_key_exists($payerId, $balance)) {
-                $balance[$payerId] += $total;
+            if (! $payerIncluded && array_key_exists($payerId, $balanceCents)) {
+                $balanceCents[$payerId] += $totalCents;
             }
         }
 
-        foreach ($balance as $id => $v) {
-            $r = round((float) $v, 2);
-            $balance[$id] = abs($r) < 0.005 ? 0.0 : $r;
+        $balance = [];
+        foreach ($balanceCents as $id => $cents) {
+            $balance[$id] = abs($cents) < 1 ? 0.0 : round($cents / 100.0, 2);
         }
 
         return $balance;

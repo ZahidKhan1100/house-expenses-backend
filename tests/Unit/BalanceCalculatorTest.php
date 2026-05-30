@@ -59,6 +59,20 @@ final class BalanceCalculatorTest extends TestCase
         self::assertEqualsWithDelta(-150.0, $b[102], 0.02);
     }
 
+    public function test_four_mates_equal_split_sums_to_bill_total(): void
+    {
+        $mateIds = [10, 20, 30, 40];
+        $records = [$this->makeEqualRecord(amount: 94.83, paidBy: 10, includedIds: [10, 20, 30, 40])];
+
+        $b = $this->calculator->calculate($records, $mateIds, 100.0);
+
+        self::assertEqualsWithDelta(71.12, $b[10], 0.01);
+        self::assertEqualsWithDelta(-23.71, $b[20], 0.01);
+        self::assertEqualsWithDelta(-23.71, $b[30], 0.01);
+        self::assertEqualsWithDelta(-23.70, $b[40], 0.01);
+        self::assertEqualsWithDelta(0.0, array_sum($b), 0.01);
+    }
+
     public function test_days_when_payer_excluded_consumer_owes_full_total(): void
     {
         $mateIds = [201, 202];

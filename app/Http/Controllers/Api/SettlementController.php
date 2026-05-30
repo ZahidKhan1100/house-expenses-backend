@@ -24,11 +24,13 @@ class SettlementController extends Controller
         $month = $request->month;
 
 
-        $transactions = $service->generate($user->house_id, $month);
+        $result = $service->generate($user->house_id, $month);
 
         return response()->json([
             'success' => true,
-            'transactions' => $transactions,
+            'transactions' => $result['transactions'] ?? [],
+            'net_balances' => $result['net_balances'] ?? [],
+            'record_count' => $result['record_count'] ?? 0,
         ]);
     }
 

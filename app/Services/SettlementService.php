@@ -89,6 +89,14 @@ class SettlementService
 
         $transactions = $engine->optimize($balances);
 
+        \Log::info('Settlement generate balances', [
+            'house_id' => $houseId,
+            'month' => $month,
+            'record_count' => $records->count(),
+            'balances' => $balances,
+            'transaction_count' => count($transactions),
+        ]);
+
         // Replace pending suggestions only — paid settlements are historical truth and are never deleted here.
         Settlement::where('house_id', $houseId)
             ->where('month', $month)
@@ -116,6 +124,10 @@ class SettlementService
             ]);
         }
 
-        return $transactions;
+        return [
+            'transactions' => $transactions,
+            'net_balances' => $balances,
+            'record_count' => $records->count(),
+        ];
     }
 }
