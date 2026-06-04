@@ -31,6 +31,9 @@ class SettlementController extends Controller
             'transactions' => $result['transactions'] ?? [],
             'net_balances' => $result['net_balances'] ?? [],
             'record_count' => $result['record_count'] ?? 0,
+            'split_meta' => [
+                'algorithm' => (string) config('houseexpenses.split_algorithm_version', 'v6-exact-cents'),
+            ],
         ]);
     }
 

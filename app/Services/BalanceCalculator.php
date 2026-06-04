@@ -33,8 +33,11 @@ class BalanceCalculator
         $count = $col->count();
         $ids = $col->pluck('id')->filter()->sort()->values()->implode(',');
 
+        $version = (string) config('houseexpenses.split_algorithm_version', 'v6-exact-cents');
+
         $key = sprintf(
-            'split_balance:v5:%d:%s:%d:%s:%s:%s',
+            'split_balance:%s:%d:%s:%d:%s:%s:%s',
+            $version,
             $houseId,
             $month,
             $count,

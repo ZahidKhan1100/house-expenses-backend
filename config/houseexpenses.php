@@ -25,6 +25,9 @@ return [
     | Uses Laravel Cache. Set SPLIT_BALANCE_CACHE_STORE=redis in production and
     | ensure CACHE_STORE or this store points at Redis.
     */
+    /** Bumped when split math changes; exposed on /payments so clients can verify deploys. */
+    'split_algorithm_version' => env('SPLIT_ALGORITHM_VERSION', 'v6-exact-cents'),
+
     'split_balance_cache' => [
         'enabled' => env('SPLIT_BALANCE_CACHE_ENABLED', true),
         'store' => env('SPLIT_BALANCE_CACHE_STORE'),

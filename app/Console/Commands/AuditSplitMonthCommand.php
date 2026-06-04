@@ -37,12 +37,16 @@ class AuditSplitMonthCommand extends Command
         $houseId = null;
         $records = collect();
         $apiSettlements = null;
+        $apiToken = '';
+        $apiUrl = '';
 
         if ($this->option('from-api')) {
             $payload = $this->loadFromProductionApi($month);
             if ($payload === null) {
                 return self::FAILURE;
             }
+            $apiToken = (string) ($this->option('api-token') ?: env('HABIMATE_API_TOKEN', ''));
+            $apiUrl = (string) ($payload['api_url'] ?? '');
             $houseId = (int) $payload['house_id'];
             $house = (object) [
                 'id' => $houseId,
@@ -165,7 +169,7 @@ class AuditSplitMonthCommand extends Command
 
         if ($this->option('from-api') && ($apiSettlements ?? []) !== []) {
             $this->newLine();
-            $this->info('Settlements stored on server (API):');
+            $this->info('Settlements stored on server (API /settlements — may be stale until regenerate):');
             foreach ($apiSettlements as $s) {
                 $this->line(sprintf(
                     '  #%s %d→%d $%s [%s]',
@@ -176,6 +180,10 @@ class AuditSplitMonthCommand extends Command
                     $s['status'] ?? '?',
                 ));
             }
+        }
+
+        if ($this->option('from-api')) {
+            $this->compareProductionPayments($month, $tx, $apiUrl, $apiToken);
         }
 
         $this->newLine();
@@ -327,6 +335,88 @@ class AuditSplitMonthCommand extends Command
             'settlements' => $settlements,
             'api_url' => $base,
         ];
+    }
+
+    /**
+     * Compare live GET /payments/{month} (what the Pay tab uses) to local exact-cent engine.
+     *
+     * @param  list<array{from_user_id:int,to_user_id:int,amount:float}>  $localTx
+     */
+    private function compareProductionPayments(string $month, array $localTx, string $apiUrl, string $token): void
+    {
+        if ($apiUrl === '' || $token === '') {
+            return;
+        }
+
+        $base = rtrim($apiUrl, '/');
+        $resp = Http::withHeaders([
+            'Accept' => 'application/json',
+            'Authorization' => 'Bearer '.$token,
+        ])->get("{$base}/payments/{$month}");
+
+        if (! $resp->successful()) {
+            $this->newLine();
+            $this->warn('GET /payments/'.$month.' failed: '.$resp->status());
+
+            return;
+        }
+
+        $algo = $resp->json('split_meta.algorithm') ?? '(missing — old API deploy)';
+        $apiTx = $resp->json('transactions') ?? [];
+
+        $this->newLine();
+        $this->info("Production Pay tab (GET /payments/{$month}) — algorithm: {$algo}");
+
+        $localByKey = [];
+        foreach ($localTx as $row) {
+            $key = $row['from_user_id'].'-'.$row['to_user_id'];
+            $localByKey[$key] = (float) $row['amount'];
+        }
+
+        $apiByKey = [];
+        foreach ($apiTx as $row) {
+            $key = ((int) ($row['from'] ?? 0)).'-'.((int) ($row['to'] ?? 0));
+            $apiByKey[$key] = (float) ($row['amount'] ?? 0);
+        }
+
+        $allKeys = array_unique(array_merge(array_keys($localByKey), array_keys($apiByKey)));
+        sort($allKeys);
+
+        $mismatch = false;
+        foreach ($allKeys as $key) {
+            $local = $localByKey[$key] ?? 0.0;
+            $api = $apiByKey[$key] ?? 0.0;
+            if (abs($local - $api) > 0.009) {
+                $mismatch = true;
+                [$from, $to] = array_map('intval', explode('-', $key, 2));
+                $this->error(sprintf(
+                    '  MISMATCH %d→%d: local $%s vs API $%s',
+                    $from,
+                    $to,
+                    number_format($local, 2),
+                    number_format($api, 2),
+                ));
+            }
+        }
+
+        foreach ($apiTx as $row) {
+            $this->line(sprintf(
+                '  API %d→%d: $%s',
+                (int) ($row['from'] ?? 0),
+                (int) ($row['to'] ?? 0),
+                number_format((float) ($row['amount'] ?? 0), 2),
+            ));
+        }
+
+        if ($algo !== 'v6-exact-cents') {
+            $this->warn('  Deploy split fix + run: php artisan cache:clear (or redeploy) until algorithm is v6-exact-cents.');
+        }
+
+        if (! $mismatch && $algo === 'v6-exact-cents') {
+            $this->info('  Pay tab amounts match this machine\'s exact-cent engine.');
+        } elseif (! $mismatch) {
+            $this->warn('  Amounts match locally but API split_meta is not v6-exact-cents — production may still be on old code.');
+        }
     }
 
     /** @param  list<array<string, mixed>>  $settlements */

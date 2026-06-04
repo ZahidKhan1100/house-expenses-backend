@@ -175,6 +175,10 @@ class PaymentController extends Controller
             'month' => $month,
             'paid_amounts' => $paidAmounts,
             'category_breakdown' => $categoryBreakdown,
+            'split_meta' => [
+                'algorithm' => (string) config('houseexpenses.split_algorithm_version', 'v6-exact-cents'),
+                'live' => true,
+            ],
         ]);
     }
 }
