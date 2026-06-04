@@ -34,7 +34,7 @@ class BalanceCalculator
         $ids = $col->pluck('id')->filter()->sort()->values()->implode(',');
 
         $key = sprintf(
-            'split_balance:v3:%d:%s:%d:%s:%s:%s',
+            'split_balance:v4:%d:%s:%d:%s:%s:%s',
             $houseId,
             $month,
             $count,
@@ -51,8 +51,8 @@ class BalanceCalculator
     }
 
     /**
-     * Net balances for the month. Per-bill shares use floored cents (no +1 to first person);
-     * leftover cents from all bills are applied once to net debtors before returning.
+     * Net balances for the month. Per-bill shares use floored cents; each bill's orphan cents
+     * are split among mates included on that bill (not piled onto the biggest debtor).
      *
      * @param  float  $guestDayWeightPercent  Each guest night counts as (percent / 100) of one full bill day (100 = legacy 1:1).
      */
@@ -60,7 +60,6 @@ class BalanceCalculator
     {
         $mateIds = array_map(static fn ($id) => (int) $id, $mateIds);
         $balanceCents = array_fill_keys($mateIds, 0);
-        $monthOrphanCents = 0;
         $gwp = $guestDayWeightPercent >= 0 ? $guestDayWeightPercent : 0.0;
 
         foreach ($records as $rec) {
@@ -103,7 +102,7 @@ class BalanceCalculator
             }
 
             $shares = $split['shares'];
-            $monthOrphanCents += (int) ($split['orphan_cents'] ?? 0);
+            $orphanCents = (int) ($split['orphan_cents'] ?? 0);
 
             $payerId = (int) $rec->paid_by;
             $payerIncluded = false;
@@ -124,9 +123,19 @@ class BalanceCalculator
             if (! $payerIncluded && array_key_exists($payerId, $balanceCents)) {
                 $balanceCents[$payerId] += $totalCents;
             }
-        }
 
-        $this->applyMonthlyOrphanCents($balanceCents, $monthOrphanCents);
+            if ($orphanCents > 0) {
+                $extraByUser = ExpenseSplit::distributeOrphanCentsAmongIncluded(
+                    $orphanCents,
+                    $included,
+                );
+                foreach ($extraByUser as $userId => $extraCents) {
+                    if (array_key_exists($userId, $balanceCents)) {
+                        $balanceCents[$userId] -= $extraCents;
+                    }
+                }
+            }
+        }
 
         $balance = [];
         foreach ($balanceCents as $id => $cents) {
@@ -134,22 +143,5 @@ class BalanceCalculator
         }
 
         return $balance;
-    }
-
-    /**
-     * Distribute leftover cents from all bills in the month to net debtors (settlement-time rounding).
-     */
-    private function applyMonthlyOrphanCents(array &$balanceCents, int $monthOrphanCents): void
-    {
-        if ($monthOrphanCents <= 0) {
-            return;
-        }
-
-        $extraByUser = ExpenseSplit::distributeOrphanCentsToDebtors($monthOrphanCents, $balanceCents);
-        foreach ($extraByUser as $userId => $extraCents) {
-            if ($extraCents !== 0 && array_key_exists($userId, $balanceCents)) {
-                $balanceCents[$userId] -= $extraCents;
-            }
-        }
     }
 }

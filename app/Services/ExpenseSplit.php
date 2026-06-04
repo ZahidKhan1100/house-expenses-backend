@@ -5,8 +5,9 @@ namespace App\Services;
 /**
  * Split totals into per-person shares in whole cents.
  *
- * Per-bill recording uses floored splits (everyone the same base on equal bills); leftover
- * cents for the month are applied once via {@see distributeOrphanCentsToDebtors()}.
+ * Per-bill recording uses floored splits; each bill's leftover cents are assigned on that
+ * bill among included mates ({@see distributeOrphanCentsAmongIncluded()}), not lumped onto
+ * the largest month-end debtor.
  */
 class ExpenseSplit
 {
@@ -80,7 +81,39 @@ class ExpenseSplit
     }
 
     /**
-     * Assign leftover month cents to net debtors (by debt weight, then stable id order).
+     * Assign a bill's leftover cents to everyone included on that bill (exact cent total).
+     *
+     * @param  array<int, array{id: int|string}>  $includedOrdered
+     * @return array<int, int> user id => extra cents owed for this bill
+     */
+    public static function distributeOrphanCentsAmongIncluded(int $orphanCents, array $includedOrdered): array
+    {
+        if ($orphanCents <= 0) {
+            return [];
+        }
+
+        $includedOrdered = array_values($includedOrdered);
+        if ($includedOrdered === []) {
+            return [];
+        }
+
+        $shares = self::sharePerUser($orphanCents / 100.0, $includedOrdered);
+        $extraCents = [];
+        foreach ($shares as $id => $amount) {
+            $extraCents[(int) $id] = (int) round($amount * 100);
+        }
+
+        $allocated = array_sum($extraCents);
+        if ($allocated !== $orphanCents) {
+            $firstId = (int) ($includedOrdered[0]['id'] ?? array_key_first($extraCents));
+            $extraCents[$firstId] = ($extraCents[$firstId] ?? 0) + ($orphanCents - $allocated);
+        }
+
+        return $extraCents;
+    }
+
+    /**
+     * @deprecated Month-end debtor weighting; use {@see distributeOrphanCentsAmongIncluded()} per bill.
      *
      * @param  array<int, int>  $balanceCents  user id => net cents (negative = owes)
      * @return array<int, int> extra cents owed per user id

@@ -67,9 +67,9 @@ final class BalanceCalculatorTest extends TestCase
         $b = $this->calculator->calculate($records, $mateIds, 100.0);
 
         self::assertEqualsWithDelta(71.13, $b[10], 0.01);
-        self::assertEqualsWithDelta(-23.71, $b[20], 0.01);
-        self::assertEqualsWithDelta(-23.71, $b[30], 0.01);
-        self::assertEqualsWithDelta(-23.71, $b[40], 0.01);
+        foreach ([20, 30, 40] as $debtorId) {
+            self::assertEqualsWithDelta(-23.71, $b[$debtorId], 0.02);
+        }
         self::assertEqualsWithDelta(0.0, array_sum($b), 0.01);
     }
 

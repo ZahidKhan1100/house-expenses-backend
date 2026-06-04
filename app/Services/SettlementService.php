@@ -33,23 +33,29 @@ class SettlementService
             })
             ->get();
 
+        $balanceCents = [];
+        foreach ($balance as $id => $v) {
+            $balanceCents[(int) $id] = (int) round(((float) $v) * 100);
+        }
+
         foreach ($paid as $s) {
             $from = (int) $s->from_user_id;
             $to = (int) $s->to_user_id;
-            if (!array_key_exists($from, $balance)) {
-                $balance[$from] = 0;
+            if (! array_key_exists($from, $balanceCents)) {
+                $balanceCents[$from] = 0;
             }
-            if (!array_key_exists($to, $balance)) {
-                $balance[$to] = 0;
+            if (! array_key_exists($to, $balanceCents)) {
+                $balanceCents[$to] = 0;
             }
-            $amt = (float) $s->amount;
-            $balance[$from] += $amt;
-            $balance[$to] -= $amt;
+            $amtCents = (int) round(((float) $s->amount) * 100);
+            $balanceCents[$from] += $amtCents;
+            $balanceCents[$to] -= $amtCents;
         }
 
-        foreach ($balance as $id => $v) {
-            $r = round((float) $v, 2);
-            $balance[$id] = abs($r) < 0.005 ? 0.0 : $r;
+        $balance = [];
+        foreach ($balanceCents as $id => $cents) {
+            $dollars = $cents / 100.0;
+            $balance[$id] = abs($dollars) < 0.005 ? 0.0 : round($dollars, 2);
         }
 
         return $balance;
