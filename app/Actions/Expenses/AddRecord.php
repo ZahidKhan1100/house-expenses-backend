@@ -149,11 +149,9 @@ class AddRecord
                         $eff = max(0, $billDays - $ex) + $guestPart;
                         return ['id' => $id, 'weight' => $eff];
                     }, $includedMates);
-                    $split = ExpenseSplit::sharePerUserWeightedFloored((float) $fresh->amount, $weighted);
-                    $shares = $split['shares'];
+                    $shares = ExpenseSplit::sharePerUserWeighted((float) $fresh->amount, $weighted);
                 } else {
-                    $split = ExpenseSplit::sharePerUserFloored((float) $fresh->amount, $includedMates);
-                    $shares = $split['shares'];
+                    $shares = ExpenseSplit::sharePerUser((float) $fresh->amount, $includedMates);
                 }
 
                 event(new BillCreated(

@@ -23,7 +23,7 @@ final class MayPdfSettlementTest extends TestCase
         $this->calculator = new BalanceCalculator;
     }
 
-    public function test_may_pdf_settlement_transfers_match_per_bill_orphan_split(): void
+    public function test_may_pdf_settlement_transfers_match_exact_cent_split(): void
     {
         $mateIds = [1, 2, 3, 4, 5, 6];
         $records = self::mayPdfRecords();

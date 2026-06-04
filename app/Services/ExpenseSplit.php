@@ -5,9 +5,9 @@ namespace App\Services;
 /**
  * Split totals into per-person shares in whole cents.
  *
- * Per-bill recording uses floored splits; each bill's leftover cents are assigned on that
- * bill among included mates ({@see distributeOrphanCentsAmongIncluded()}), not lumped onto
- * the largest month-end debtor.
+ * Balance/settlement uses {@see sharePerUser()} / {@see sharePerUserWeighted()} so each bill
+ * divides to the exact cent (remainder on earliest included mates). Floored helpers remain
+ * for legacy callers/tests only.
  */
 class ExpenseSplit
 {
