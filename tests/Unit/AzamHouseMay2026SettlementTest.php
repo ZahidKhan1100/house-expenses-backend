@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit;
 
 use App\Services\BalanceCalculator;
+use App\Services\ExpenseSplit;
 use App\Services\SettlementEngine;
 use PHPUnit\Framework\TestCase;
 use stdClass;
@@ -12,6 +13,8 @@ use stdClass;
 /**
  * Production house #2 (azam KHAN's House) — May 2026 — 16 records from Railway audit.
  * Satbir (6) excluded from Meat only. User ids: 3=azam, 4=Amir, 5=Zahid, 6=Satbir, 7=Abid, 8=Junaid.
+ *
+ * Equal splits pool by included mates: all grocery ÷6, all rent ÷6, all meat ÷5.
  */
 final class AzamHouseMay2026SettlementTest extends TestCase
 {
@@ -23,7 +26,37 @@ final class AzamHouseMay2026SettlementTest extends TestCase
         $this->calculator = new BalanceCalculator;
     }
 
-    public function test_may_2026_transfers_match_production_exact_cent_engine(): void
+    public function test_grocery_rent_meat_pooled_by_six_and_five(): void
+    {
+        $mateIds = [3, 4, 5, 6, 7, 8];
+        $all = array_map(static fn (int $id) => ['id' => $id], $mateIds);
+        $meat = array_values(array_filter($all, static fn (array $m) => $m['id'] !== 6));
+
+        $grocery = 809.37;
+        $rent = 664.0;
+        $meatTotal = 251.98;
+
+        foreach ([3, 5] as $id) {
+            $share = ExpenseSplit::sharePerUser($grocery, $all)[$id]
+                + ExpenseSplit::sharePerUser($rent, $all)[$id]
+                + ExpenseSplit::sharePerUser($meatTotal, $meat)[$id];
+            self::assertEqualsWithDelta(295.97, $share, 0.01, "user {$id} pooled grocery+rent+meat");
+        }
+
+        $abidShare = ExpenseSplit::sharePerUser($grocery, $all)[7]
+            + ExpenseSplit::sharePerUser($rent, $all)[7]
+            + ExpenseSplit::sharePerUser($meatTotal, $meat)[7];
+        self::assertEqualsWithDelta(295.94, $abidShare, 0.01);
+        self::assertLessThan(0.05, abs($abidShare - 295.97));
+
+        self::assertEqualsWithDelta(
+            245.56,
+            ExpenseSplit::sharePerUser($grocery, $all)[6] + ExpenseSplit::sharePerUser($rent, $all)[6],
+            0.02,
+        );
+    }
+
+    public function test_may_2026_transfers_match_category_pool_engine(): void
     {
         $mateIds = [3, 4, 5, 6, 7, 8];
         $balances = $this->calculator->calculate(collect(self::productionRecords()), $mateIds, 100.0);
@@ -37,13 +70,13 @@ final class AzamHouseMay2026SettlementTest extends TestCase
             $byKey[$key] = (float) $row['amount'];
         }
 
-        self::assertEqualsWithDelta(-295.90, $balances[7], 0.01);
-        self::assertEqualsWithDelta(-141.12, $balances[5], 0.01);
-        self::assertEqualsWithDelta(295.90, $byKey['7-8'] ?? 0.0, 0.01);
-        self::assertEqualsWithDelta(2.26, $byKey['5-8'] ?? 0.0, 0.01);
-        self::assertEqualsWithDelta(127.13, $byKey['5-6'] ?? 0.0, 0.01);
-        self::assertEqualsWithDelta(11.73, $byKey['5-4'] ?? 0.0, 0.01);
-        self::assertEqualsWithDelta(45.64, $byKey['3-4'] ?? 0.0, 0.01);
+        self::assertEqualsWithDelta(-295.95, $balances[7], 0.01);
+        self::assertEqualsWithDelta(-141.10, $balances[5], 0.01);
+        self::assertEqualsWithDelta(295.95, $byKey['7-8'] ?? 0.0, 0.01);
+        self::assertEqualsWithDelta(2.16, $byKey['5-8'] ?? 0.0, 0.01);
+        self::assertEqualsWithDelta(127.11, $byKey['5-6'] ?? 0.0, 0.01);
+        self::assertEqualsWithDelta(11.83, $byKey['5-4'] ?? 0.0, 0.01);
+        self::assertEqualsWithDelta(45.59, $byKey['3-4'] ?? 0.0, 0.01);
         self::assertCount(5, $tx);
     }
 

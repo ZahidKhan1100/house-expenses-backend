@@ -176,7 +176,7 @@ class PaymentController extends Controller
             'paid_amounts' => $paidAmounts,
             'category_breakdown' => $categoryBreakdown,
             'split_meta' => [
-                'algorithm' => (string) config('houseexpenses.split_algorithm_version', 'v6-exact-cents'),
+                'algorithm' => (string) config('houseexpenses.split_algorithm_version', 'v7-category-pools'),
                 'live' => true,
             ],
         ]);

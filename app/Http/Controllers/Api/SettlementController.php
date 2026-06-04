@@ -32,7 +32,7 @@ class SettlementController extends Controller
             'net_balances' => $result['net_balances'] ?? [],
             'record_count' => $result['record_count'] ?? 0,
             'split_meta' => [
-                'algorithm' => (string) config('houseexpenses.split_algorithm_version', 'v6-exact-cents'),
+                'algorithm' => (string) config('houseexpenses.split_algorithm_version', 'v7-category-pools'),
             ],
         ]);
     }

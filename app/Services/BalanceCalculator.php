@@ -33,7 +33,7 @@ class BalanceCalculator
         $count = $col->count();
         $ids = $col->pluck('id')->filter()->sort()->values()->implode(',');
 
-        $version = (string) config('houseexpenses.split_algorithm_version', 'v6-exact-cents');
+        $version = (string) config('houseexpenses.split_algorithm_version', 'v7-category-pools');
 
         $key = sprintf(
             'split_balance:%s:%d:%s:%d:%s:%s:%s',
@@ -54,20 +54,24 @@ class BalanceCalculator
     }
 
     /**
-     * Net balances for the month. Each bill splits to the exact cent among people on that bill
-     * (e.g. €610÷3 → €203.34 + €203.33 + €203.33). Full-house bills are applied first, then
-     * partial-category bills add on top.
+     * Net balances for the month.
+     *
+     * Equal splits: bills with the same included mates are pooled (e.g. all grocery lines summed,
+     * then ÷6; all meat summed, then ÷5). Day-weighted bills stay per line. Payer credits are per bill.
      *
      * @param  float  $guestDayWeightPercent  Each guest night counts as (percent / 100) of one full bill day (100 = legacy 1:1).
      */
     public function calculate($records, array $mateIds, float $guestDayWeightPercent = 100.0): array
     {
         $mateIds = array_map(static fn ($id) => (int) $id, $mateIds);
-        $balanceCents = array_fill_keys($mateIds, 0);
         $gwp = $guestDayWeightPercent >= 0 ? $guestDayWeightPercent : 0.0;
 
-        $fullHouse = [];
-        $partial = [];
+        $paidCents = array_fill_keys($mateIds, 0);
+        $shareOwedCents = array_fill_keys($mateIds, 0);
+        $daysBalanceCents = array_fill_keys($mateIds, 0);
+
+        /** @var array<string, array{included: list<array{id: int}>, total_cents: int}> $pools */
+        $pools = [];
 
         foreach ($records as $rec) {
             $included = $this->filterIncludedMates($rec, $mateIds);
@@ -75,40 +79,54 @@ class BalanceCalculator
                 continue;
             }
 
-            if ($this->isFullHouseBill($included, $mateIds)) {
-                $fullHouse[] = [$rec, $included];
-            } else {
-                $partial[] = [$rec, $included];
+            $payerId = (int) $rec->paid_by;
+            $totalCents = (int) round(((float) $rec->amount) * 100);
+
+            if (($rec->split_method ?? 'equal') === 'days') {
+                $this->applyBillToBalanceCents($rec, $included, $daysBalanceCents, $gwp);
+
+                continue;
             }
+
+            if (array_key_exists($payerId, $paidCents)) {
+                $paidCents[$payerId] += $totalCents;
+            }
+
+            $poolKey = $this->equalSplitPoolKey($included);
+            if (! isset($pools[$poolKey])) {
+                $pools[$poolKey] = [
+                    'included' => $included,
+                    'total_cents' => 0,
+                ];
+            }
+            $pools[$poolKey]['total_cents'] += $totalCents;
         }
 
-        foreach ([$fullHouse, $partial] as $group) {
-            foreach ($group as [$rec, $included]) {
-                $this->applyBillToBalanceCents($rec, $included, $balanceCents, $gwp);
+        foreach ($pools as $pool) {
+            $total = $pool['total_cents'] / 100.0;
+            $shares = ExpenseSplit::sharePerUser($total, $pool['included']);
+            foreach ($pool['included'] as $mate) {
+                $id = (int) $mate['id'];
+                $shareOwedCents[$id] += (int) round(((float) ($shares[$id] ?? 0.0)) * 100);
             }
         }
 
         $balance = [];
-        foreach ($balanceCents as $id => $cents) {
+        foreach ($mateIds as $id) {
+            $cents = $paidCents[$id] - $shareOwedCents[$id] + $daysBalanceCents[$id];
             $balance[$id] = abs($cents) < 1 ? 0.0 : round($cents / 100.0, 2);
         }
 
         return $balance;
     }
 
-    /** @param  list<int>  $mateIds */
-    private function isFullHouseBill(array $included, array $mateIds): bool
+    /** @param  list<array{id: int}>  $included */
+    private function equalSplitPoolKey(array $included): string
     {
-        if (count($included) !== count($mateIds)) {
-            return false;
-        }
+        $ids = array_map(static fn (array $m) => (int) $m['id'], $included);
+        sort($ids);
 
-        $onBill = array_map(static fn (array $m) => (int) $m['id'], $included);
-        sort($onBill);
-        $house = $mateIds;
-        sort($house);
-
-        return $onBill === $house;
+        return implode(',', $ids);
     }
 
     /** @param  list<int>  $mateIds
@@ -126,6 +144,8 @@ class BalanceCalculator
     }
 
     /**
+     * Day-weighted bills: applied per line (not pooled).
+     *
      * @param  list<array{id: int|string}>  $included
      * @param  array<int, int>  $balanceCents
      */
@@ -133,23 +153,19 @@ class BalanceCalculator
     {
         $total = (float) $rec->amount;
 
-        if (($rec->split_method ?? 'equal') === 'days') {
-            $excluded = is_array($rec->excluded_days_by_user ?? null) ? $rec->excluded_days_by_user : [];
-            $guestExtra = is_array($rec->guest_extra_days_by_user ?? null) ? $rec->guest_extra_days_by_user : [];
-            $billDays = (int) ($rec->bill_period_days ?? 0);
-            $weighted = array_map(static function ($m) use ($excluded, $guestExtra, $billDays, $gwp) {
-                $id = (int) ($m['id'] ?? 0);
-                $ex = max(0, (int) ($excluded[$id] ?? 0));
-                $gx = max(0, (int) ($guestExtra[$id] ?? 0));
-                $guestPart = $gx * ($gwp / 100.0);
-                $eff = max(0, $billDays - $ex) + $guestPart;
+        $excluded = is_array($rec->excluded_days_by_user ?? null) ? $rec->excluded_days_by_user : [];
+        $guestExtra = is_array($rec->guest_extra_days_by_user ?? null) ? $rec->guest_extra_days_by_user : [];
+        $billDays = (int) ($rec->bill_period_days ?? 0);
+        $weighted = array_map(static function ($m) use ($excluded, $guestExtra, $billDays, $gwp) {
+            $id = (int) ($m['id'] ?? 0);
+            $ex = max(0, (int) ($excluded[$id] ?? 0));
+            $gx = max(0, (int) ($guestExtra[$id] ?? 0));
+            $guestPart = $gx * ($gwp / 100.0);
+            $eff = max(0, $billDays - $ex) + $guestPart;
 
-                return ['id' => $id, 'weight' => $eff];
-            }, $included);
-            $shares = ExpenseSplit::sharePerUserWeighted($total, $weighted);
-        } else {
-            $shares = ExpenseSplit::sharePerUser($total, $included);
-        }
+            return ['id' => $id, 'weight' => $eff];
+        }, $included);
+        $shares = ExpenseSplit::sharePerUserWeighted($total, $weighted);
 
         $payerId = (int) $rec->paid_by;
         $payerIncluded = false;

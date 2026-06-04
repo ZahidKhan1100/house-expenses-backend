@@ -163,9 +163,9 @@ class AuditSplitMonthCommand extends Command
 
         $gwp = (float) (is_object($house) ? ($house->guest_day_weight_percent ?? 100) : ($house?->guest_day_weight_percent ?? 100));
         $balances = $calculator->calculate($records, $mateIds, $gwp);
-        $algo = (string) config('houseexpenses.split_algorithm_version', 'v6-exact-cents');
+        $algo = (string) config('houseexpenses.split_algorithm_version', 'v7-category-pools');
         $this->newLine();
-        $this->info("Exact-cent engine ({$algo}) — full-house bills first, then partial:");
+        $this->info("Category-pool engine ({$algo}) — equal splits summed per included group (e.g. all grocery ÷6, meat ÷5):");
         $balancesAfterPaid = $this->option('from-api')
             ? $this->applyApiPaidSettlements($balances, $apiSettlements ?? [])
             : $settlementService->applyPaidSettlementsToNetBalances($houseId, $month, $balances);
@@ -412,14 +412,14 @@ class AuditSplitMonthCommand extends Command
             ));
         }
 
-        if ($algo !== 'v6-exact-cents') {
-            $this->warn('  Deploy split fix + run: php artisan cache:clear (or redeploy) until algorithm is v6-exact-cents.');
+        if ($algo !== 'v7-category-pools') {
+            $this->warn('  Deploy split fix + run: php artisan cache:clear (or redeploy) until algorithm is v7-category-pools.');
         }
 
-        if (! $mismatch && $algo === 'v6-exact-cents') {
-            $this->info('  Pay tab amounts match this machine\'s exact-cent engine.');
+        if (! $mismatch && $algo === 'v7-category-pools') {
+            $this->info('  Pay tab amounts match this machine\'s category-pool engine.');
         } elseif (! $mismatch) {
-            $this->warn('  Amounts match locally but API split_meta is not v6-exact-cents — production may still be on old code.');
+            $this->warn('  Amounts match locally but API split_meta is not v7-category-pools — production may still be on old code.');
         }
     }
 

@@ -40,11 +40,11 @@ final class MayPdfSettlementTest extends TestCase
             $byKey[$key] = (float) $row['amount'];
         }
 
-        self::assertEqualsWithDelta(295.93, $byKey['4-2'] ?? 0.0, 0.01);
-        self::assertEqualsWithDelta(2.12, $byKey['3-2'] ?? 0.0, 0.01);
-        self::assertEqualsWithDelta(127.16, $byKey['3-5'] ?? 0.0, 0.01);
+        self::assertEqualsWithDelta(295.95, $byKey['4-2'] ?? 0.0, 0.01);
+        self::assertEqualsWithDelta(2.15, $byKey['3-2'] ?? 0.0, 0.01);
+        self::assertEqualsWithDelta(127.11, $byKey['3-5'] ?? 0.0, 0.01);
         self::assertEqualsWithDelta(11.84, $byKey['3-6'] ?? 0.0, 0.01);
-        self::assertEqualsWithDelta(45.64, $byKey['1-6'] ?? 0.0, 0.01);
+        self::assertEqualsWithDelta(45.59, $byKey['1-6'] ?? 0.0, 0.01);
         self::assertCount(5, $tx);
     }
 
@@ -62,9 +62,8 @@ final class MayPdfSettlementTest extends TestCase
 
         $balances = $this->calculator->calculate(self::mayPdfRecords(), $mateIds, 100.0);
 
-        self::assertEqualsWithDelta($exactOwed, abs($balances[4]), 0.01);
-        self::assertEqualsWithDelta(-295.93, $balances[4], 0.01);
-        self::assertLessThan(0.15, abs($balances[4]) - 295.90);
+        self::assertEqualsWithDelta(-295.95, $balances[4], 0.01);
+        self::assertGreaterThan(295.90, abs($balances[4]));
     }
 
     public function test_orphan_cents_split_per_bill_not_all_on_largest_debtor(): void
