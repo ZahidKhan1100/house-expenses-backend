@@ -11,7 +11,8 @@ use PHPUnit\Framework\TestCase;
 use stdClass;
 
 /**
- * May 2026 production PDF: Satbir (5) excluded from Meat; six housemates otherwise.
+ * Reference PDF amounts with test user ids 1–6 (Satbir = 5 excluded from Meat).
+ * Production azam KHAN house uses ids 3–8 — see {@see AzamHouseMay2026SettlementTest}.
  */
 final class MayPdfSettlementTest extends TestCase
 {

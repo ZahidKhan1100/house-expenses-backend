@@ -12,6 +12,20 @@ namespace App\Services;
 class ExpenseSplit
 {
     /**
+     * Stable order for cent remainders (lowest user id first). Use before every split.
+     *
+     * @param  array<int, array{id: int|string, name?: string}>  $included
+     * @return list<array{id: int|string, name?: string}>
+     */
+    public static function sortIncludedMates(array $included): array
+    {
+        $included = array_values($included);
+        usort($included, static fn (array $a, array $b) => (int) ($a['id'] ?? 0) <=> (int) ($b['id'] ?? 0));
+
+        return $included;
+    }
+
+    /**
      * Equal split: floor cents per person; leftover cents are returned separately.
      *
      * @param  array<int, array{id: int|string}>  $includedOrdered

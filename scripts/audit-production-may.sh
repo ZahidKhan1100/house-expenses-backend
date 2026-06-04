@@ -6,10 +6,12 @@
 #   export HABIMATE_API_TOKEN='your-token-from-app-login'
 #   ./scripts/audit-production-may.sh 2026-05
 #
-# Or on Railway (uses production DATABASE_URL — best for users 3–8):
-#   railway login
-#   railway link
-#   railway run php artisan split:audit 2026-05 --users=3,4,5,6,7,8
+# On Railway (must run INSIDE the API container — not `railway run` on your Mac):
+#   railway login && railway link   # pick API service
+#   railway ssh -- php artisan cache:clear
+#   railway ssh -- php artisan split:audit 2026-05 --users=3,4,5,6,7,8
+# Optional: normalize included_mates order on existing rows
+#   railway ssh -- php artisan split:normalize-included --house=2
 
 set -euo pipefail
 MONTH="${1:-2026-05}"

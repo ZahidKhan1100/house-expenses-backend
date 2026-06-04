@@ -118,9 +118,11 @@ class BalanceCalculator
     {
         $included = is_array($rec->included_mates ?? null) ? $rec->included_mates : [];
 
-        return array_values(array_filter($included, function ($m) use ($mateIds) {
+        $filtered = array_values(array_filter($included, function ($m) use ($mateIds) {
             return in_array((int) ($m['id'] ?? 0), $mateIds, true);
         }));
+
+        return ExpenseSplit::sortIncludedMates($filtered);
     }
 
     /**

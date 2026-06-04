@@ -39,7 +39,6 @@ class AddRecord
             // Resolve included mates with their names
             $includedMates = [];
             if (!empty($data['included_mates'])) {
-                // Preserve client list order — remainder cents go to earlier entries (ExpenseSplit).
                 $matesById = User::whereIn('id', $data['included_mates'])
                     ->get(['id', 'name'])
                     ->keyBy('id');
@@ -52,6 +51,7 @@ class AddRecord
                         ];
                     }
                 }
+                $includedMates = ExpenseSplit::sortIncludedMates($includedMates);
             }
 
             // Get paid_by user

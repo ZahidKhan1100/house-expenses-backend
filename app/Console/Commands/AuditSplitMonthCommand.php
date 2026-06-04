@@ -158,10 +158,14 @@ class AuditSplitMonthCommand extends Command
         }
 
         $this->newLine();
-        $this->info("Month orphan cents (pre-distribution): {$monthOrphanTotal}");
+        $this->comment('(Orphan/gap lines above are floored diagnostic only — not used for settlements.)');
+        $this->info("Month orphan cents if floored (not applied): {$monthOrphanTotal}");
 
         $gwp = (float) (is_object($house) ? ($house->guest_day_weight_percent ?? 100) : ($house?->guest_day_weight_percent ?? 100));
         $balances = $calculator->calculate($records, $mateIds, $gwp);
+        $algo = (string) config('houseexpenses.split_algorithm_version', 'v6-exact-cents');
+        $this->newLine();
+        $this->info("Exact-cent engine ({$algo}) — full-house bills first, then partial:");
         $balancesAfterPaid = $this->option('from-api')
             ? $this->applyApiPaidSettlements($balances, $apiSettlements ?? [])
             : $settlementService->applyPaidSettlementsToNetBalances($houseId, $month, $balances);
@@ -207,7 +211,7 @@ class AuditSplitMonthCommand extends Command
         $this->line("  SUM: {$sumAfter}".($sumAfter !== 0.0 ? ' ⚠️ should be 0' : ' ✓'));
 
         $this->newLine();
-        $this->info('Settlement transactions:');
+        $this->info('Settlement transactions (Pay tab / generate plan use these):');
         $txSum = 0.0;
         foreach ($tx as $row) {
             $this->line(sprintf(

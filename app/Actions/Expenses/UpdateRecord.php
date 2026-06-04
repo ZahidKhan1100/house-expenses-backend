@@ -4,6 +4,7 @@ namespace App\Actions\Expenses;
 
 use App\Models\Record;
 use App\Services\ExpenseAuditLogger;
+use App\Services\ExpenseSplit;
 use App\Models\User;
 use App\Models\Expense;
 use Carbon\Carbon;
@@ -45,9 +46,9 @@ class UpdateRecord
                         ];
                     }
                 }
+                $includedMates = ExpenseSplit::sortIncludedMates($includedMates);
             } else {
-                // fallback to existing
-                $includedMates = $record->included_mates ?? [];
+                $includedMates = ExpenseSplit::sortIncludedMates($record->included_mates ?? []);
             }
 
             // ✅ 4. Resolve paid_by user
