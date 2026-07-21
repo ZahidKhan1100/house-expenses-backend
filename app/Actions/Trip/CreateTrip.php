@@ -9,8 +9,10 @@ class CreateTrip
 {
     public function execute(array $data, $adminId): Trip
     {
-        // Auto-generate unique trip code
-        $code = strtoupper(Str::random(6));
+        // Auto-generate a trip code, retrying on the rare collision against the unique constraint
+        do {
+            $code = strtoupper(Str::random(6));
+        } while (Trip::where('code', $code)->exists());
 
         return Trip::create([
             'name' => $data['name'],

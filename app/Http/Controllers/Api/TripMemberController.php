@@ -45,7 +45,7 @@ class TripMemberController extends Controller
         }
 
         // Check if user is already in an active trip
-        if ($user->trips()->where('status', 'active')->exists()) {
+        if ($user->trip_id) {
             return response()->json(['message' => 'User is already in an active trip.'], 422);
         }
 
@@ -56,6 +56,8 @@ class TripMemberController extends Controller
 
         // Attach user to trip
         $trip->members()->attach($user->id);
+        $user->trip_id = $trip->id;
+        $user->save();
 
         return response()->json([
             'message' => 'Member added successfully',
@@ -79,6 +81,12 @@ class TripMemberController extends Controller
         }
 
         $trip->members()->detach($userId);
+
+        $removedUser = User::find($userId);
+        if ($removedUser && (int) $removedUser->trip_id === (int) $tripId) {
+            $removedUser->trip_id = null;
+            $removedUser->save();
+        }
 
         return response()->json(['message' => 'Member removed successfully']);
     }

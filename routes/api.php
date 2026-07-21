@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\MateController;
 use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\TripController;
 use App\Http\Controllers\Api\TripMemberController;
+use App\Http\Controllers\Api\TripExpenseController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\PushTokenController;
 use App\Http\Controllers\Api\HouseWallController;
@@ -225,14 +226,24 @@ Route::prefix('v1')->group(function () {
         // Trips
         Route::get('/trips', [TripController::class, 'index']);
         Route::post('/trips', [TripController::class, 'store']);
+        Route::post('/trips/join', [TripController::class, 'join']);
+        Route::post('/trips/leave', [TripController::class, 'leave']);
         Route::get('/trips/{tripId}', [TripController::class, 'show']);
         Route::put('/trips/{tripId}', [TripController::class, 'update']);
         Route::delete('/trips/{tripId}', [TripController::class, 'destroy']);
+        Route::get('/trips/{tripId}/balances', [TripController::class, 'balances']);
 
         // Trip Members
         Route::get('/trips/{tripId}/members', [TripMemberController::class, 'index']);
         Route::post('/trips/{tripId}/members', [TripMemberController::class, 'store']);
         Route::delete('/trips/{tripId}/members/{userId}', [TripMemberController::class, 'destroy']);
+
+        // Trip Expenses
+        Route::get('/trips/{tripId}/expenses', [TripExpenseController::class, 'index']);
+        Route::post('/trips/{tripId}/expenses', [TripExpenseController::class, 'store']);
+        Route::get('/trips/{tripId}/expenses/{expenseId}', [TripExpenseController::class, 'show']);
+        Route::put('/trips/{tripId}/expenses/{expenseId}', [TripExpenseController::class, 'update']);
+        Route::delete('/trips/{tripId}/expenses/{expenseId}', [TripExpenseController::class, 'destroy']);
 
     });
 });

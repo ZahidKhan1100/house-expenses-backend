@@ -16,6 +16,7 @@ class TripExpense extends Model
         'amount',
         'currency',
         'notes',
+        'split_method',
     ];
 
     /**
@@ -32,5 +33,15 @@ class TripExpense extends Model
     public function payer()
     {
         return $this->belongsTo(User::class, 'paid_by');
+    }
+
+    /**
+     * Participants and their share of this expense
+     */
+    public function participants()
+    {
+        return $this->belongsToMany(User::class, 'trip_expense_user')
+                    ->withPivot('share_amount')
+                    ->withTimestamps();
     }
 }
