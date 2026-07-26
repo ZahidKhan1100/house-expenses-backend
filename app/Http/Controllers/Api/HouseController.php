@@ -36,6 +36,8 @@ class HouseController extends Controller
 
     public function show(House $house)
     {
+        $this->authorize('view', $house);
+
         // Load mates and categories
         $house->load('mates', 'categories');
 

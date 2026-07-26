@@ -17,7 +17,7 @@ class TripExpenseController extends Controller
 
         $expenses = $trip->expenses()->with('participants', 'payer')->latest()->get();
 
-        return response()->json(['expenses' => $expenses]);
+        return response()->json(['expenses' => $expenses->map($this->formatExpense(...))]);
     }
 
     public function store(Request $request, $tripId, AddTripExpense $action)
@@ -37,7 +37,7 @@ class TripExpenseController extends Controller
 
         $expense = $action->execute($trip, Auth::user(), $data);
 
-        return response()->json(['success' => true, 'expense' => $expense], 201);
+        return response()->json(['success' => true, 'expense' => $this->formatExpense($expense)], 201);
     }
 
     public function show($tripId, $expenseId)
@@ -46,7 +46,7 @@ class TripExpenseController extends Controller
 
         $expense = $trip->expenses()->with('participants', 'payer')->findOrFail($expenseId);
 
-        return response()->json(['expense' => $expense]);
+        return response()->json(['expense' => $this->formatExpense($expense)]);
     }
 
     public function update(Request $request, $tripId, $expenseId)
@@ -63,7 +63,7 @@ class TripExpenseController extends Controller
 
         $expense->update($data);
 
-        return response()->json(['success' => true, 'expense' => $expense->load('participants', 'payer')]);
+        return response()->json(['success' => true, 'expense' => $this->formatExpense($expense->load('participants', 'payer'))]);
     }
 
     public function destroy($tripId, $expenseId)
@@ -76,6 +76,37 @@ class TripExpenseController extends Controller
         $expense->delete();
 
         return response()->json(['success' => true, 'message' => 'Expense deleted']);
+    }
+
+    /**
+     * Strip house-scoped and other internal user fields from expense payer/participants
+     * before serialization, matching the id/name/email whitelist used in TripMemberController.
+     */
+    private function formatExpense(TripExpense $expense): array
+    {
+        return [
+            'id' => $expense->id,
+            'trip_id' => $expense->trip_id,
+            'title' => $expense->title,
+            'amount' => $expense->amount,
+            'currency' => $expense->currency,
+            'notes' => $expense->notes,
+            'split_method' => $expense->split_method,
+            'paid_by' => $expense->paid_by,
+            'created_at' => $expense->created_at,
+            'updated_at' => $expense->updated_at,
+            'payer' => $expense->payer ? [
+                'id' => $expense->payer->id,
+                'name' => $expense->payer->name,
+                'email' => $expense->payer->email,
+            ] : null,
+            'participants' => $expense->participants->map(fn ($user) => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'share_amount' => $user->pivot->share_amount,
+            ]),
+        ];
     }
 
     private function authorizedTrip($tripId): Trip
