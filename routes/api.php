@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\TripController;
 use App\Http\Controllers\Api\TripMemberController;
 use App\Http\Controllers\Api\TripExpenseController;
+use App\Http\Controllers\Api\TripSettlementController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\PushTokenController;
 use App\Http\Controllers\Api\HouseWallController;
@@ -244,6 +245,11 @@ Route::prefix('v1')->group(function () {
         Route::get('/trips/{tripId}/expenses/{expenseId}', [TripExpenseController::class, 'show']);
         Route::put('/trips/{tripId}/expenses/{expenseId}', [TripExpenseController::class, 'update']);
         Route::delete('/trips/{tripId}/expenses/{expenseId}', [TripExpenseController::class, 'destroy']);
+
+        // Trip Settlements
+        Route::get('/trips/{tripId}/settlements', [TripSettlementController::class, 'index']);
+        Route::post('/trips/{tripId}/settlements/generate', [TripSettlementController::class, 'generate']);
+        Route::post('/trips/{tripId}/settlements/{id}/mark-paid', [TripSettlementController::class, 'markPaid']);
 
     });
 });
