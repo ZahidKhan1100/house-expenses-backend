@@ -8,7 +8,7 @@ use App\Services\TripExpenseShareCalculator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
-class AddTripExpense
+class UpdateTripExpense
 {
     public function __construct(private TripExpenseShareCalculator $calculator)
     {
@@ -17,7 +17,7 @@ class AddTripExpense
     /**
      * @param  array{title:string,amount:float,currency?:string,notes?:string,split_method:string,participants:array<int,array{user_id:int,value?:float}>}  $data
      */
-    public function execute(Trip $trip, int $payerId, array $data): TripExpense
+    public function execute(Trip $trip, TripExpense $expense, int $payerId, array $data): TripExpense
     {
         $amount = (float) $data['amount'];
         $splitMethod = $data['split_method'] ?? 'equal';
@@ -33,16 +33,17 @@ class AddTripExpense
 
         $shares = $this->calculator->compute($splitMethod, $amount, $participants);
 
-        return DB::transaction(function () use ($trip, $payerId, $data, $shares) {
-            $expense = TripExpense::create([
-                'trip_id' => $trip->id,
+        return DB::transaction(function () use ($expense, $payerId, $data, $shares) {
+            $expense->update([
                 'paid_by' => $payerId,
                 'title' => $data['title'],
                 'amount' => $data['amount'],
-                'currency' => $data['currency'] ?? $trip->currency,
+                'currency' => $data['currency'] ?? $expense->currency,
                 'notes' => $data['notes'] ?? null,
                 'split_method' => $data['split_method'] ?? 'equal',
             ]);
+
+            DB::table('trip_expense_user')->where('trip_expense_id', $expense->id)->delete();
 
             $rows = [];
             foreach ($shares as $userId => $shareAmount) {

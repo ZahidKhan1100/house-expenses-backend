@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Actions\Trip\AddTripExpense;
+use App\Actions\Trip\UpdateTripExpense;
 use App\Http\Controllers\Controller;
 use App\Models\Trip;
 use App\Models\TripExpense;
@@ -33,9 +34,11 @@ class TripExpenseController extends Controller
             'participants' => 'required|array|min:1',
             'participants.*.user_id' => 'required|integer',
             'participants.*.value' => 'nullable|numeric',
+            'paid_by' => 'nullable|integer',
         ]);
 
-        $expense = $action->execute($trip, Auth::user(), $data);
+        $payerId = $this->resolvePayerId($trip, $data['paid_by'] ?? null);
+        $expense = $action->execute($trip, $payerId, $data);
 
         return response()->json(['success' => true, 'expense' => $this->formatExpense($expense)], 201);
     }
@@ -49,7 +52,7 @@ class TripExpenseController extends Controller
         return response()->json(['expense' => $this->formatExpense($expense)]);
     }
 
-    public function update(Request $request, $tripId, $expenseId)
+    public function update(Request $request, $tripId, $expenseId, UpdateTripExpense $action)
     {
         $trip = $this->authorizedTrip($tripId);
         $expense = $trip->expenses()->findOrFail($expenseId);
@@ -57,13 +60,21 @@ class TripExpenseController extends Controller
         $this->authorizeExpenseEdit($trip, $expense);
 
         $data = $request->validate([
-            'title' => 'sometimes|string|max:255',
+            'title' => 'required|string|max:255',
+            'amount' => 'required|numeric|min:0.01',
+            'currency' => 'nullable|string|max:5',
             'notes' => 'nullable|string|max:1000',
+            'split_method' => 'required|in:equal,percentage,exact',
+            'participants' => 'required|array|min:1',
+            'participants.*.user_id' => 'required|integer',
+            'participants.*.value' => 'nullable|numeric',
+            'paid_by' => 'nullable|integer',
         ]);
 
-        $expense->update($data);
+        $payerId = $this->resolvePayerId($trip, $data['paid_by'] ?? null);
+        $expense = $action->execute($trip, $expense, $payerId, $data);
 
-        return response()->json(['success' => true, 'expense' => $this->formatExpense($expense->load('participants', 'payer'))]);
+        return response()->json(['success' => true, 'expense' => $this->formatExpense($expense)]);
     }
 
     public function destroy($tripId, $expenseId)
@@ -107,6 +118,18 @@ class TripExpenseController extends Controller
                 'share_amount' => $user->pivot->share_amount,
             ]),
         ];
+    }
+
+    private function resolvePayerId(Trip $trip, ?int $requestedPayerId): int
+    {
+        if ($requestedPayerId === null) {
+            return Auth::id();
+        }
+
+        $isMember = (int) $trip->admin_id === $requestedPayerId || $trip->members()->where('users.id', $requestedPayerId)->exists();
+        abort_unless($isMember, 422, 'The selected payer must be a member of this trip.');
+
+        return $requestedPayerId;
     }
 
     private function authorizedTrip($tripId): Trip
