@@ -24,6 +24,7 @@ class TripExpenseController extends Controller
     public function store(Request $request, $tripId, AddTripExpense $action)
     {
         $trip = $this->authorizedTrip($tripId);
+        $this->assertTripActive($trip);
 
         $data = $request->validate([
             'title' => 'required|string|max:255',
@@ -58,6 +59,7 @@ class TripExpenseController extends Controller
         $expense = $trip->expenses()->findOrFail($expenseId);
 
         $this->authorizeExpenseEdit($trip, $expense);
+        $this->assertTripActive($trip);
 
         $data = $request->validate([
             'title' => 'required|string|max:255',
@@ -83,6 +85,7 @@ class TripExpenseController extends Controller
         $expense = $trip->expenses()->findOrFail($expenseId);
 
         $this->authorizeExpenseEdit($trip, $expense);
+        $this->assertTripActive($trip);
 
         $expense->delete();
 
@@ -146,5 +149,10 @@ class TripExpenseController extends Controller
     {
         $canEdit = (int) $trip->admin_id === Auth::id() || (int) $expense->paid_by === Auth::id();
         abort_unless($canEdit, 403, 'Only the trip admin or the payer can modify this expense.');
+    }
+
+    private function assertTripActive(Trip $trip): void
+    {
+        abort_if($trip->status === 'archived', 422, 'This trip has ended and can no longer be modified.');
     }
 }

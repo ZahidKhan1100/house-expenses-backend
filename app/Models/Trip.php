@@ -21,6 +21,9 @@ class Trip extends Model
         'budget',
         'location',
         'participants_limit',
+        'archived_at',
+        'memory_photo_url',
+        'memory_photo_public_id',
     ];
 
     /**

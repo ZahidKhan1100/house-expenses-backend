@@ -233,6 +233,9 @@ Route::prefix('v1')->group(function () {
         Route::put('/trips/{tripId}', [TripController::class, 'update']);
         Route::delete('/trips/{tripId}', [TripController::class, 'destroy']);
         Route::get('/trips/{tripId}/balances', [TripController::class, 'balances']);
+        Route::post('/trips/{tripId}/end', [TripController::class, 'end']);
+        Route::put('/trips/{tripId}/photo', [TripController::class, 'updatePhoto']);
+        Route::post('/trips/{tripId}/upload-signature', [TripController::class, 'uploadSignature']);
 
         // Trip Members
         Route::get('/trips/{tripId}/members', [TripMemberController::class, 'index']);

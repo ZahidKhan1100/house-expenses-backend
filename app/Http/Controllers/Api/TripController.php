@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CreateTripRequest;
 use App\Actions\Trip\CreateTrip;
+use App\Actions\Trip\EndTrip;
 use App\Actions\Trip\JoinTripByCode;
 use App\Actions\Trip\LeaveTrip;
 use App\Services\SettlementEngine;
@@ -74,11 +75,93 @@ class TripController extends Controller
             ->where('admin_id', Auth::id())
             ->firstOrFail();
 
+        $this->assertTripActive($trip);
+
         $trip->update($request->validated());
 
         return response()->json([
             'success' => true,
             'trip' => $trip,
+        ]);
+    }
+
+    public function end(Request $request, $tripId, EndTrip $action): JsonResponse
+    {
+        $trip = Trip::where('id', $tripId)
+            ->where('admin_id', Auth::id())
+            ->firstOrFail();
+
+        $this->assertTripActive($trip);
+
+        $data = $request->validate([
+            'photo_url' => 'nullable|string|max:2048',
+            'photo_public_id' => 'nullable|string|max:255',
+        ]);
+
+        $trip = $action->execute($trip, $data['photo_url'] ?? null, $data['photo_public_id'] ?? null);
+
+        return response()->json([
+            'success' => true,
+            'trip' => $trip,
+        ]);
+    }
+
+    public function updatePhoto(Request $request, $tripId): JsonResponse
+    {
+        $trip = Trip::where('id', $tripId)
+            ->where('admin_id', Auth::id())
+            ->firstOrFail();
+
+        $data = $request->validate([
+            'photo_url' => 'nullable|string|max:2048',
+            'photo_public_id' => 'nullable|string|max:255',
+        ]);
+
+        $trip->update([
+            'memory_photo_url' => $data['photo_url'] ?? null,
+            'memory_photo_public_id' => $data['photo_public_id'] ?? null,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'trip' => $trip,
+        ]);
+    }
+
+    public function uploadSignature(Request $request, $tripId): JsonResponse
+    {
+        $trip = Trip::where('id', $tripId)
+            ->where('admin_id', Auth::id())
+            ->firstOrFail();
+
+        $cloudName = env('CLOUDINARY_CLOUD_NAME');
+        $apiKey = env('CLOUDINARY_API_KEY');
+        $apiSecret = env('CLOUDINARY_API_SECRET');
+
+        if (!$cloudName || !$apiKey || !$apiSecret) {
+            return response()->json([
+                'message' => 'Cloudinary not configured on backend',
+            ], 500);
+        }
+
+        $timestamp = time();
+        $folder = 'habimate/images/trips/' . (int) $trip->id;
+
+        $params = [
+            'folder' => $folder,
+            'timestamp' => $timestamp,
+        ];
+        ksort($params);
+        $toSign = urldecode(http_build_query($params));
+        $signature = sha1($toSign . $apiSecret);
+
+        return response()->json([
+            'success' => true,
+            'cloud_name' => $cloudName,
+            'api_key' => $apiKey,
+            'timestamp' => $timestamp,
+            'folder' => $folder,
+            'signature' => $signature,
         ]);
     }
 
@@ -153,5 +236,10 @@ class TripController extends Controller
         abort_unless($isMember, 403, 'You are not a member of this trip.');
 
         return $trip;
+    }
+
+    private function assertTripActive(Trip $trip): void
+    {
+        abort_if($trip->status === 'archived', 422, 'This trip has ended and can no longer be modified.');
     }
 }

@@ -37,6 +37,8 @@ class TripMemberController extends Controller
         ]);
 
         $trip = Trip::findOrFail($tripId);
+        $this->assertTripActive($trip);
+
         $user = User::where('email', $request->email)->firstOrFail();
 
         // Check if email is verified
@@ -75,6 +77,7 @@ class TripMemberController extends Controller
     public function destroy($tripId, $userId)
     {
         $trip = Trip::findOrFail($tripId);
+        $this->assertTripActive($trip);
 
         if (!$trip->members()->where('user_id', $userId)->exists()) {
             return response()->json(['message' => 'Member not found'], 404);
@@ -89,5 +92,10 @@ class TripMemberController extends Controller
         }
 
         return response()->json(['message' => 'Member removed successfully']);
+    }
+
+    private function assertTripActive(Trip $trip): void
+    {
+        abort_if($trip->status === 'archived', 422, 'This trip has ended and can no longer be modified.');
     }
 }

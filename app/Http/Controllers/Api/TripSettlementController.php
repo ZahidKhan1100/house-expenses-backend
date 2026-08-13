@@ -18,6 +18,7 @@ class TripSettlementController extends Controller
     public function generate(Request $request, $tripId, TripSettlementService $service)
     {
         $trip = $this->authorizedTrip($tripId);
+        $this->assertTripActive($trip);
 
         $result = $service->generate($trip->id);
 
@@ -77,6 +78,7 @@ class TripSettlementController extends Controller
     public function markPaid($tripId, $id)
     {
         $trip = $this->authorizedTrip($tripId);
+        $this->assertTripActive($trip);
         $user = Auth::user();
 
         $settlement = TripSettlement::where('id', $id)
@@ -171,5 +173,10 @@ class TripSettlementController extends Controller
         abort_unless($isMember, 403, 'You are not a member of this trip.');
 
         return $trip;
+    }
+
+    private function assertTripActive(Trip $trip): void
+    {
+        abort_if($trip->status === 'archived', 422, 'This trip has ended and can no longer be modified.');
     }
 }
