@@ -34,4 +34,7 @@ RUN mkdir -p storage/framework/{sessions,views,cache,testing} storage/logs boots
 EXPOSE 8000
 
 # Start Laravel server
-CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
+# docker/start.sh runs migrations + the web server (ROLE=web), the queue (ROLE=worker) or the scheduler (ROLE=scheduler).
+# Railway overrides this with the startCommand in railway.json.
+RUN chmod +x docker/start.sh
+CMD ["sh", "docker/start.sh"]

@@ -1,0 +1,57 @@
+# Coolify deploy: API + queue worker + scheduler from the same image, sharing storage/app.
+# MySQL runs as a separate Coolify "Database" resource — point DB_HOST at it (and leave DB_URL unset).
+# All services join Coolify's shared `coolify` network so they can reach that database by name.
+# Set the domain (https://api.habimate.com) on the `app` service in Coolify's UI, port 8000.
+services:
+  app:
+    build: .
+    environment:
+      ROLE: web
+      PORT: 8000
+    expose:
+      - "8000"
+    volumes:
+      - storage:/var/www/html/storage/app
+    networks:
+      - default
+      - coolify
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/up"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
+
+  worker:
+    build: .
+    environment:
+      ROLE: worker
+    volumes:
+      - storage:/var/www/html/storage/app
+    networks:
+      - default
+      - coolify
+    depends_on:
+      - app
+    restart: unless-stopped
+
+  scheduler:
+    build: .
+    environment:
+      ROLE: scheduler
+    volumes:
+      - storage:/var/www/html/storage/app
+    networks:
+      - default
+      - coolify
+    depends_on:
+      - app
+    restart: unless-stopped
+
+volumes:
+  storage:
+
+networks:
+  coolify:
+    external: true
