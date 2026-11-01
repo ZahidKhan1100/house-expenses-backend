@@ -9,9 +9,9 @@ class CloudinaryService
 {
     public function deleteImageByPublicId(string $publicId): void
     {
-        $cloudName = env('CLOUDINARY_CLOUD_NAME');
-        $apiKey = env('CLOUDINARY_API_KEY');
-        $apiSecret = env('CLOUDINARY_API_SECRET');
+        $cloudName = config('services.cloudinary.cloud_name');
+        $apiKey = config('services.cloudinary.api_key');
+        $apiSecret = config('services.cloudinary.api_secret');
 
         if (!$cloudName || !$apiKey || !$apiSecret) {
             return;

@@ -36,10 +36,34 @@ return [
     ],
 
     'mailgun' => [
-    'domain' => env('MAILGUN_DOMAIN'),
-    'secret' => env('MAILGUN_SECRET'),
-    'endpoint' => env('MAILGUN_ENDPOINT', 'api.mailgun.net'),
-],
+        'domain' => env('MAILGUN_DOMAIN'),
+        'secret' => env('MAILGUN_SECRET'),
+        'endpoint' => env('MAILGUN_ENDPOINT', 'api.mailgun.net'),
+    ],
+
+    /** OAuth client IDs accepted as the `aud` of Google id_tokens (Android, iOS, Web, Expo). */
+    'google' => [
+        'android_client_id' => env('GOOGLE_ANDROID_CLIENT_ID'),
+        'ios_client_id' => env('GOOGLE_IOS_CLIENT_ID'),
+        'web_client_id' => env('GOOGLE_WEB_CLIENT_ID'),
+        'expo_client_id' => env('GOOGLE_EXPO_CLIENT_ID'),
+        'client_id' => env('GOOGLE_CLIENT_ID'),
+    ],
+
+    'cloudinary' => [
+        'cloud_name' => env('CLOUDINARY_CLOUD_NAME'),
+        'api_key' => env('CLOUDINARY_API_KEY'),
+        'api_secret' => env('CLOUDINARY_API_SECRET'),
+    ],
+
+    'gemini' => [
+        'api_key' => env('GEMINI_API_KEY'),
+    ],
+
+    /** Shared secret for the internal karma log endpoint (X-Karma-Secret header). */
+    'karma' => [
+        'log_secret' => env('KARMA_LOG_SECRET'),
+    ],
 
 ];
 

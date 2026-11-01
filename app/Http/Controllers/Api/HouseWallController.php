@@ -223,9 +223,9 @@ class HouseWallController extends Controller
         $user = $request->user();
         if (!$user->house_id) return response()->json(['message' => 'No house'], 400);
 
-        $cloudName = env('CLOUDINARY_CLOUD_NAME');
-        $apiKey = env('CLOUDINARY_API_KEY');
-        $apiSecret = env('CLOUDINARY_API_SECRET');
+        $cloudName = config('services.cloudinary.cloud_name');
+        $apiKey = config('services.cloudinary.api_key');
+        $apiSecret = config('services.cloudinary.api_secret');
 
         if (!$cloudName || !$apiKey || !$apiSecret) {
             return response()->json([

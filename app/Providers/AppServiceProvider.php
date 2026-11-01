@@ -44,7 +44,7 @@ class AppServiceProvider extends ServiceProvider
             if (app()->environment('local')) {
                 return true;
             }
-            $allowed = array_filter(array_map('trim', explode(',', (string) env('PULSE_ALLOWED_EMAILS', ''))));
+            $allowed = config('houseexpenses.pulse_allowed_emails', []);
             if ($user === null || empty($allowed)) {
                 return false;
             }

@@ -2,12 +2,15 @@
 # Container entrypoint for self-hosted deploys (Coolify / docker compose).
 # ROLE=web (default) runs migrations and the HTTP server, ROLE=worker runs the queue,
 # ROLE=scheduler runs `schedule:work`. Railway ignores this — it uses railway.json's startCommand.
-#
-# Config is deliberately NOT cached: several classes read settings with env() directly
-# (Cloudinary, Gemini, Mailgun, Google login, …), and env() returns null once config is cached.
 set -e
 
 cd /var/www/html
+
+# Cache config/routes/views from the container's env. All settings are read through config(),
+# so this is safe (env() calls outside config/ would return null once config is cached).
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache
 
 case "${ROLE:-web}" in
   worker)

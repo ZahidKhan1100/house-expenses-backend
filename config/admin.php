@@ -14,6 +14,9 @@ return [
     | together with server-level rules.
     |
     */
+    /** Require two-factor (authenticator app) login for /admin staff. */
+    'mfa_required' => filter_var(env('FILAMENT_ADMIN_MFA_REQUIRED', false), FILTER_VALIDATE_BOOLEAN),
+
     'allowed_ips' => array_values(array_filter(array_map(
         'trim',
         explode(',', (string) env('ADMIN_ALLOWED_IPS', '')),

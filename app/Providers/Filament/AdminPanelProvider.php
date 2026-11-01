@@ -42,10 +42,7 @@ class AdminPanelProvider extends PanelProvider
             ->profile(isSimple: false)
             ->multiFactorAuthentication([
                 AppAuthentication::make()->recoverable(),
-            ], isRequired: (bool) filter_var(
-                env('FILAMENT_ADMIN_MFA_REQUIRED', false),
-                FILTER_VALIDATE_BOOLEAN,
-            ))
+            ], isRequired: (bool) config('admin.mfa_required'))
             ->colors([
                 // Brand: coral CTA / links (matches mobile app)
                 'primary' => Color::hex('#FF6A6A'),

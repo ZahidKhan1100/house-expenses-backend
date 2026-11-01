@@ -134,9 +134,9 @@ class TripController extends Controller
             ->where('admin_id', Auth::id())
             ->firstOrFail();
 
-        $cloudName = env('CLOUDINARY_CLOUD_NAME');
-        $apiKey = env('CLOUDINARY_API_KEY');
-        $apiSecret = env('CLOUDINARY_API_SECRET');
+        $cloudName = config('services.cloudinary.cloud_name');
+        $apiKey = config('services.cloudinary.api_key');
+        $apiSecret = config('services.cloudinary.api_secret');
 
         if (!$cloudName || !$apiKey || !$apiSecret) {
             return response()->json([

@@ -21,10 +21,15 @@ RUN docker-php-ext-install -j "$(nproc)" intl \
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 # Copy all files
+# Dependencies first, in their own layer: only re-runs when composer.json/lock change,
+# so ordinary code deploys reuse the cached vendor/ instead of reinstalling every package.
+COPY composer.json composer.lock ./
+RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist --no-interaction
+
 COPY . .
 
-# Install PHP dependencies
-RUN composer install --optimize-autoloader --no-interaction
+# Optimized autoloader (also runs package:discover etc. via composer scripts)
+RUN composer dump-autoload --optimize --no-dev --no-interaction
 
 # Set permissions for Laravel
 RUN mkdir -p storage/framework/{sessions,views,cache,testing} storage/logs bootstrap/cache \

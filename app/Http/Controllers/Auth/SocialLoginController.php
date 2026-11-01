@@ -149,11 +149,11 @@ class SocialLoginController extends Controller
             // you use: Android, iOS, Web, and the same value as app extra googleAuth.expoClientId
             // for Expo Go (auth proxy) — typically set GOOGLE_EXPO_CLIENT_ID to that client id.
             $audiences = array_unique(array_filter([
-                env('GOOGLE_ANDROID_CLIENT_ID'),
-                env('GOOGLE_IOS_CLIENT_ID'),
-                env('GOOGLE_WEB_CLIENT_ID'),
-                env('GOOGLE_EXPO_CLIENT_ID'),
-                env('GOOGLE_CLIENT_ID'),
+                config('services.google.android_client_id'),
+                config('services.google.ios_client_id'),
+                config('services.google.web_client_id'),
+                config('services.google.expo_client_id'),
+                config('services.google.client_id'),
             ]));
 
             foreach ($audiences as $audience) {

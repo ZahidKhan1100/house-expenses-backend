@@ -16,8 +16,8 @@ class AdminSeeder extends Seeder
             Role::findOrCreate($roleName, $guard);
         }
 
-        $email = env('ADMIN_EMAIL');
-        $password = env('ADMIN_PASSWORD');
+        $email = config('houseexpenses.admin_seed.email');
+        $password = config('houseexpenses.admin_seed.password');
 
         if (! $email || ! $password) {
             if (isset($this->command)) {
@@ -31,7 +31,7 @@ class AdminSeeder extends Seeder
 
         if (! $admin->exists) {
             $admin->fill([
-                'name' => env('ADMIN_NAME', 'Super Admin'),
+                'name' => config('houseexpenses.admin_seed.name', 'Super Admin'),
                 'password' => $password,
             ]);
         }

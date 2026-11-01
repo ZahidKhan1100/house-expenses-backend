@@ -9,7 +9,7 @@ class WallSnippetExpiryService
 {
     public function cleanupExpiredSnippets(?int $days = null): int
     {
-        $ttlDays = $days ?? (int) (env('WALL_SNIPPET_TTL_DAYS', 2));
+        $ttlDays = $days ?? (int) config('houseexpenses.wall_snippet_ttl_days', 2);
         if ($ttlDays <= 0) {
             return 0;
         }

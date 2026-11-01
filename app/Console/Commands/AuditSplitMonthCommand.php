@@ -45,7 +45,7 @@ class AuditSplitMonthCommand extends Command
             if ($payload === null) {
                 return self::FAILURE;
             }
-            $apiToken = (string) ($this->option('api-token') ?: env('HABIMATE_API_TOKEN', ''));
+            $apiToken = (string) ($this->option('api-token') ?: config('houseexpenses.audit.api_token', ''));
             $apiUrl = (string) ($payload['api_url'] ?? '');
             $houseId = (int) $payload['house_id'];
             $house = (object) [
@@ -269,8 +269,8 @@ class AuditSplitMonthCommand extends Command
      */
     private function loadFromProductionApi(string $month): ?array
     {
-        $token = (string) ($this->option('api-token') ?: env('HABIMATE_API_TOKEN', ''));
-        $base = rtrim((string) ($this->option('api-url') ?: env('HABIMATE_API_URL', 'https://api.habimate.com/api/v1')), '/');
+        $token = (string) ($this->option('api-token') ?: config('houseexpenses.audit.api_token', ''));
+        $base = rtrim((string) ($this->option('api-url') ?: config('houseexpenses.audit.api_url', 'https://api.habimate.com/api/v1')), '/');
 
         if ($token === '') {
             $this->error('Missing API token. Set HABIMATE_API_TOKEN or pass --api-token=');

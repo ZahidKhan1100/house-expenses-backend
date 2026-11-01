@@ -5,10 +5,10 @@ use Illuminate\Support\Facades\Log;
 if (!function_exists('sendMailgunEmail')) {
     function sendMailgunEmail($to, $subject, $html, $text = null)
     {
-        $domain = env('MAILGUN_DOMAIN');
-        $apiKey = env('MAILGUN_SECRET');
-        $from = env('MAIL_FROM_ADDRESS', 'app@habimate.com');
-        $fromName = env('MAIL_FROM_NAME', 'HabiMate');
+        $domain = config('services.mailgun.domain');
+        $apiKey = config('services.mailgun.secret');
+        $from = config('mail.from.address') ?: 'app@habimate.com';
+        $fromName = config('mail.from.name') ?: 'HabiMate';
 
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, "https://api.mailgun.net/v3/{$domain}/messages");

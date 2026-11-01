@@ -92,7 +92,7 @@ class ReceiptScanController extends Controller
             'cloudinary_public_id' => ['nullable', 'string', 'max:512'],
         ]);
 
-        $apiKey = env('GEMINI_API_KEY');
+        $apiKey = config('services.gemini.api_key');
         if (!$apiKey) {
             return response()->json(['message' => 'Gemini not configured'], 500);
         }

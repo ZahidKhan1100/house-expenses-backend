@@ -7,16 +7,30 @@
  * Prefer explicit PUBLIC_APP_URL (e.g. https://api.habimate.com) so verify-email URLs never
  * hit the Next.js domain (would 404 on /api/v1/...).
  */
-function houseexpenses_public_app_url(): string
-{
-    $raw = env('PUBLIC_APP_URL', env('APP_URL', 'http://localhost'));
-
-    return rtrim((string) $raw, '/');
-}
-
 return [
 
-    'public_app_url' => houseexpenses_public_app_url(),
+    // Inline (not a helper function): config files must not declare functions, or caching/reloading
+    // config fails with "Cannot redeclare function".
+    'public_app_url' => rtrim((string) env('PUBLIC_APP_URL', env('APP_URL', 'http://localhost')), '/'),
+
+    /** Comma-separated emails allowed to open Laravel Pulse outside local. */
+    'pulse_allowed_emails' => array_values(array_filter(array_map('trim', explode(',', (string) env('PULSE_ALLOWED_EMAILS', ''))))),
+
+    /** Days before House Wall snippets expire. */
+    'wall_snippet_ttl_days' => (int) env('WALL_SNIPPET_TTL_DAYS', 2),
+
+    /** Defaults for `php artisan audit:split-month` (overridable with --api-token / --api-url). */
+    'audit' => [
+        'api_token' => env('HABIMATE_API_TOKEN', ''),
+        'api_url' => env('HABIMATE_API_URL', 'https://api.habimate.com/api/v1'),
+    ],
+
+    /** Initial /admin user created by AdminSeeder. */
+    'admin_seed' => [
+        'email' => env('ADMIN_EMAIL'),
+        'password' => env('ADMIN_PASSWORD'),
+        'name' => env('ADMIN_NAME', 'Super Admin'),
+    ],
 
     /*
     |--------------------------------------------------------------------------
